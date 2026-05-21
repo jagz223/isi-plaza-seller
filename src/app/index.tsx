@@ -1,34 +1,23 @@
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Redirect } from 'expo-router';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { LoadingOverlay } from '@/components/isi-plaza';
+import { Routes } from '@/constants/routes';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          Hello World
-        </ThemedText>
-      </SafeAreaView>
-    </ThemedView>
-  );
+export default function Index() {
+  const { isLoading, isAuthenticated, hasAccess } = useAuth();
+
+  if (isLoading) {
+    return <LoadingOverlay />;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href={Routes.registro} />;
+  }
+
+  if (!hasAccess) {
+    return <Redirect href={Routes.suscripcion} />;
+  }
+
+  return <Redirect href={Routes.perfil} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.three,
-  },
-  title: {
-    textAlign: 'center',
-  },
-});
