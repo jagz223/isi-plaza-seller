@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.isiplaza.seller",
       "adaptiveIcon": {
         "backgroundColor": "#FF0000",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
