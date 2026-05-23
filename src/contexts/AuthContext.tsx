@@ -95,8 +95,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      await refreshSession();
-      setIsLoading(false);
+      try {
+        await refreshSession();
+      } catch {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     })();
   }, [refreshSession]);
 

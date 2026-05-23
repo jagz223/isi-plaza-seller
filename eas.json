@@ -10,11 +10,20 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "production",
       "android": {
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://isi-plaza-admin.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://isi-plaza-admin.onrender.com",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAB3xIBhQV7iqTdlmUDg_uxp18LNJws2FY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "isi-plaza-bf7f0.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "isi-plaza-bf7f0",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "isi-plaza-bf7f0.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "70648231171",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:70648231171:web:956f42174296c8348aa536",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-NMCJFBN4HF",
+        "EXPO_PUBLIC_PLATFORM_ACCESS_FAIL_OPEN": "false"
       }
     },
     "production": {
@@ -22,7 +31,15 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://isi-plaza-admin.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://isi-plaza-admin.onrender.com",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAB3xIBhQV7iqTdlmUDg_uxp18LNJws2FY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "isi-plaza-bf7f0.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "isi-plaza-bf7f0",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "isi-plaza-bf7f0.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "70648231171",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:70648231171:web:956f42174296c8348aa536",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-NMCJFBN4HF",
+        "EXPO_PUBLIC_PLATFORM_ACCESS_FAIL_OPEN": "false"
       }
     }
   }

@@ -16,6 +16,7 @@ const PlatformAccessContext = createContext<PlatformAccessState>({
   firestoreError: null,
 });
 
+/** Si no puede leer Firestore: true = dejar pasar, false = pantalla negra (más seguro). */
 function isFailOpen(): boolean {
   return process.env.EXPO_PUBLIC_PLATFORM_ACCESS_FAIL_OPEN === 'true';
 }
