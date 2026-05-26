@@ -1,5 +1,8 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text, Pressable } from 'react-native';
+
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
 
@@ -7,13 +10,29 @@ type IsiHeaderProps = {
   compact?: boolean;
   /** access = logo blanco sobre rojo (pantalla de registro); admin = tarjeta blanca (estilo panel) */
   variant?: 'access' | 'admin';
+  title?: string;
+  showBack?: boolean;
 };
 
-export function IsiHeader({ compact = false, variant = 'access' }: IsiHeaderProps) {
+export function IsiHeader({ compact = false, variant = 'access', title, showBack = false }: IsiHeaderProps) {
+  const router = useRouter();
+  
   return (
-    <View style={[styles.wrapper, compact && styles.wrapperCompact]}>
+    <View style={[styles.wrapper, compact && styles.wrapperCompact, title && styles.wrapperWithTitle]}>
       <View style={[styles.curve, compact && styles.curveCompact]} />
-      <View style={styles.logoContainer}>
+      
+      {showBack && (
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={variant === 'access' ? IsiPlazaColors.white : IsiPlazaColors.text} />
+        </Pressable>
+      )}
+
+      {title ? (
+        <View style={styles.titleContainer}>
+          <Text style={styles.titleText}>{title}</Text>
+        </View>
+      ) : (
+        <View style={styles.logoContainer}>
         {variant === 'access' ? (
           <Image
             source={require('@/assets/images/splash-brand.jpg')}
@@ -30,6 +49,7 @@ export function IsiHeader({ compact = false, variant = 'access' }: IsiHeaderProp
           </View>
         )}
       </View>
+      )}
     </View>
   );
 }
@@ -57,6 +77,27 @@ const styles = StyleSheet.create({
     height: 140,
     borderBottomLeftRadius: 140,
     borderBottomRightRadius: 140,
+  },
+  wrapperWithTitle: {
+    height: 120,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: IsiPlazaSpacing.xl,
+  },
+  titleText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: IsiPlazaColors.white,
+  },
+  backButton: {
+    position: 'absolute',
+    top: IsiPlazaSpacing.xl + 10,
+    left: IsiPlazaSpacing.md,
+    zIndex: 10,
+    padding: 8,
   },
   logoContainer: {
     flex: 1,

@@ -106,11 +106,13 @@ export default function RegistroScreen() {
 
   return (
     <View style={styles.root}>
-      <IsiHeader variant="access" />
+      <IsiHeader variant="access" showBack={true} />
       <IsiScreen contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>¡Registrate!</Text>
+        <View style={styles.card}>
+          <Text style={styles.heading}>¡Regístrate!</Text>
+          <Text style={styles.subheading}>Crea tu cuenta para comenzar a vender y comprar.</Text>
 
-        <View style={styles.section}>
+          <View style={styles.section}>
           <IsiInput label="Nombre" placeholder="Tu nombre o empresa" value={regName} onChangeText={setRegName} />
           <IsiInput
             label="Mail"
@@ -134,16 +136,19 @@ export default function RegistroScreen() {
             value={regPasswordConfirm}
             onChangeText={setRegPasswordConfirm}
           />
-          <IsiButton label="Registrarme" onPress={handleRegister} disabled={loading} />
+            <IsiButton label="Registrarme" onPress={handleRegister} disabled={loading} style={styles.mainButton} />
+          </View>
         </View>
 
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Inicia sesión</Text>
+          <Text style={styles.dividerText}>¿Ya tienes cuenta?</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.card}>
+          <Text style={styles.heading}>Inicia sesión</Text>
+          <View style={styles.section}>
           <IsiInput
             label="Correo"
             placeholder="correo@ejemplo.com"
@@ -159,13 +164,14 @@ export default function RegistroScreen() {
             value={loginPassword}
             onChangeText={setLoginPassword}
           />
-          <IsiButton label="Iniciar Sesión" onPress={handleLogin} disabled={loading} />
+          <IsiButton label="Iniciar Sesión" onPress={handleLogin} disabled={loading} style={styles.mainButton} />
           <IsiButton
-            label="Recuperar contraseña del correo ingresado"
+            label="¿Olvidaste tu contraseña?"
             variant="ghost"
             onPress={handleForgotPassword}
             disabled={loading}
           />
+          </View>
         </View>
       </IsiScreen>
     </View>
@@ -175,26 +181,51 @@ export default function RegistroScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: IsiPlazaColors.background,
+    backgroundColor: '#f8f9fa',
   },
   content: {
     paddingHorizontal: IsiPlazaSpacing.lg,
-    paddingTop: IsiPlazaSpacing.lg,
+    paddingTop: IsiPlazaSpacing.xl,
+    paddingBottom: IsiPlazaSpacing.xxl,
     gap: IsiPlazaSpacing.lg,
   },
+  card: {
+    backgroundColor: IsiPlazaColors.white,
+    padding: IsiPlazaSpacing.xl,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
   heading: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: IsiPlazaColors.text,
+    fontSize: 26,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
     textAlign: 'center',
+    marginBottom: IsiPlazaSpacing.xs,
+  },
+  subheading: {
+    fontSize: 14,
+    color: IsiPlazaColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: IsiPlazaSpacing.xl,
   },
   section: {
     gap: IsiPlazaSpacing.md,
+  },
+  mainButton: {
+    marginTop: IsiPlazaSpacing.sm,
+    borderRadius: 12,
+    paddingVertical: 14,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: IsiPlazaSpacing.md,
+    marginVertical: IsiPlazaSpacing.md,
+    paddingHorizontal: IsiPlazaSpacing.lg,
   },
   dividerLine: {
     flex: 1,
@@ -202,7 +233,7 @@ const styles = StyleSheet.create({
     backgroundColor: IsiPlazaColors.border,
   },
   dividerText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: IsiPlazaColors.textSecondary,
   },

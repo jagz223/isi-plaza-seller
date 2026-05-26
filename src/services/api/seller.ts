@@ -11,7 +11,10 @@ import type {
   SubscriptionResponse,
 } from '@/types/seller-api';
 
+import { imageUriToBase64Payload } from '@/utils/image-base64';
+
 import { apiRequest, setStoredToken } from './client';
+import { resolveMediaUrl } from './config';
 
 export type RegisterPayload = {
   name: string;
@@ -29,11 +32,13 @@ export type ProfilePatchPayload = {
   business_category_id?: number;
   description?: string;
   country?: string;
-  state?: string;
+  state?: string | string[];
   whatsapp?: string;
   instagram?: string;
   facebook?: string;
   website?: string;
+  avatar_base64?: string;
+  avatar_mime_type?: string;
 };
 
 export type PasswordPatchPayload = {
@@ -116,7 +121,7 @@ export function buildProfilePatchBody(fields: {
   business_category_id: number;
   description: string;
   country: string;
-  state: string;
+  state: string | string[];
   whatsapp: string;
   instagram: string;
   facebook: string;
@@ -126,7 +131,7 @@ export function buildProfilePatchBody(fields: {
     business_category_id: Number(fields.business_category_id),
     description: fields.description.trim(),
     country: fields.country.trim(),
-    state: fields.state.trim(),
+    state: Array.isArray(fields.state) ? fields.state : fields.state.trim(),
   };
   const whatsapp = fields.whatsapp.trim();
   const instagram = fields.instagram.trim();
@@ -151,8 +156,8 @@ export function isLocalImageUri(uri: string | null | undefined): uri is string {
 }
 
 /**
- * Guardado de texto en seller_profiles — siempre JSON (como Postman).
- * No usar FormData aquí: en RN suele enviar multipart vacío y Laravel no persiste nada.
+ * PATCH /profile — siempre application/json (instrucciones admin §3, §5–6).
+ * Texto + avatar_base64 en un solo request si se incluyen campos de avatar.
  */
 export async function patchProfileJson(payload: ProfilePatchPayload) {
   const res = await apiRequest<ProfileResponse>('/profile', {
@@ -162,33 +167,30 @@ export async function patchProfileJson(payload: ProfilePatchPayload) {
   return res.data;
 }
 
-/**
- * Solo avatar en multipart, tras haber guardado el resto con patchProfileJson.
- */
-export async function patchProfileAvatar(avatarUri: string) {
-  const form = new FormData();
-  const filename = avatarUri.split('/').pop() ?? 'avatar.jpg';
-  const mime = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-  form.append('avatar', {
-    uri: avatarUri,
-    name: filename,
-    type: mime,
-  } as unknown as Blob);
-
-  const res = await apiRequest<ProfileResponse>('/profile', {
-    method: 'PATCH',
-    body: form,
+/** Avatar vía JSON Base64 (recomendado por backend). */
+export async function patchProfileWithAvatar(
+  payload: ProfilePatchPayload,
+  avatarUri: string,
+) {
+  const { base64, mime_type } = await imageUriToBase64Payload(avatarUri);
+  return patchProfileJson({
+    ...payload,
+    avatar_base64: base64,
+    avatar_mime_type: mime_type,
   });
-  return res.data;
 }
 
-/** @deprecated Usar patchProfileJson + patchProfileAvatar por separado */
-export async function patchProfile(payload: ProfilePatchPayload, avatarUri?: string) {
-  const data = await patchProfileJson(payload);
-  if (avatarUri && isLocalImageUri(avatarUri)) {
-    return patchProfileAvatar(avatarUri);
-  }
-  return data;
+/** 
+ * Enviar perfil usando FormData (para archivos grandes como PDF o Excel).
+ * Se envía como POST con _method=PATCH para compatibilidad con Laravel.
+ */
+export async function patchProfileFormData(formData: FormData) {
+  formData.append('_method', 'PATCH');
+  const res = await apiRequest<ProfileResponse>('/profile', {
+    method: 'POST',
+    body: formData,
+  });
+  return res.data;
 }
 
 export async function fetchCatalogImages() {
@@ -196,39 +198,36 @@ export async function fetchCatalogImages() {
   return res.data;
 }
 
-function normalizeCatalogImage(raw: unknown, displayOrder: number, fallbackUri?: string): CatalogImage {
+function normalizeCatalogImage(raw: unknown, displayOrder: number): CatalogImage {
   if (raw && typeof raw === 'object') {
     const item = 'data' in (raw as object) ? (raw as { data: CatalogImage }).data : (raw as CatalogImage);
     if (item?.image_url) {
+      const url = resolveMediaUrl(item.image_url) ?? item.image_url;
       return {
         id: item.id ?? 0,
-        image_url: item.image_url,
+        image_url: url,
         display_order: item.display_order ?? displayOrder,
       };
     }
   }
-  if (fallbackUri) {
-    return { id: 0, image_url: fallbackUri, display_order: displayOrder };
-  }
   throw new Error('Respuesta de catálogo sin image_url');
 }
 
+/**
+ * POST /catalog-images — JSON Base64 (instrucciones admin §7).
+ */
 export async function uploadCatalogImage(uri: string, displayOrder: number) {
-  const form = new FormData();
-  const filename = uri.split('/').pop() ?? 'catalog.jpg';
-  const mime = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-  form.append('image', {
-    uri,
-    name: filename,
-    type: mime,
-  } as unknown as Blob);
-  form.append('display_order', String(displayOrder));
+  const { base64, mime_type } = await imageUriToBase64Payload(uri);
 
   const res = await apiRequest<unknown>('/catalog-images', {
     method: 'POST',
-    body: form,
+    body: {
+      display_order: displayOrder,
+      image_base64: base64,
+      mime_type,
+    },
   });
-  return normalizeCatalogImage(res, displayOrder, uri);
+  return normalizeCatalogImage(res, displayOrder);
 }
 
 export async function deleteCatalogImage(id: number) {

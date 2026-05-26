@@ -1,7 +1,9 @@
+import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import MultiSelect from 'react-native-multiple-select';
 
 import {
   CategoryPicker,
@@ -22,8 +24,9 @@ import {
   fetchCatalogImages,
   fetchProfile,
   isLocalImageUri,
-  patchProfileAvatar,
   patchProfileJson,
+  patchProfileWithAvatar,
+  patchProfileFormData,
   uploadCatalogImage,
 } from '@/services/api/seller';
 import type { BusinessCategory, CatalogImage, SellerUser } from '@/types/seller-api';
@@ -44,8 +47,9 @@ export default function PerfilScreen() {
   const [categoryName, setCategoryName] = useState('');
   const [description, setDescription] = useState('');
   const [country, setCountry] = useState('');
-  const [state, setState] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
+  const [state, setState] = useState<string[]>([]); // MultiSelect needs an array of IDs
+  const [whatsappPrefix, setWhatsappPrefix] = useState<string[]>([ '+54' ]);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [instagram, setInstagram] = useState('');
   const [facebook, setFacebook] = useState('');
   const [website, setWebsite] = useState('');
@@ -63,19 +67,58 @@ export default function PerfilScreen() {
     return map;
   }, [catalogImages]);
 
+  const [pendingPdf, setPendingPdf] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [pendingExcel, setPendingExcel] = useState<{ uri: string; name: string; type: string } | null>(null);
+
+  const [carouselTitles, setCarouselTitles] = useState<Record<number, string>>({});
+  const [carouselDescriptions, setCarouselDescriptions] = useState<Record<number, string>>({});
+
   const applyProfileToForm = useCallback((profile: SellerUser) => {
     const sp = profile.seller_profile;
     setBusinessName(profile.name);
     setDescription(sp?.description ?? '');
     setCountry(sp?.country ?? '');
-    setState(sp?.state ?? '');
-    setWhatsapp(sp?.whatsapp ?? '');
+    
+    // Parse state as array if it's stored as JSON
+    try {
+      if (sp?.state) {
+        const parsed = JSON.parse(sp.state);
+        setState(Array.isArray(parsed) ? parsed : [sp.state]);
+      } else {
+        setState([]);
+      }
+    } catch {
+      setState(sp?.state ? [sp.state] : []);
+    }
+
+    if (sp?.whatsapp) {
+      if (sp.whatsapp.startsWith('+')) {
+        const prefixEnd = sp.whatsapp.indexOf(' ', 1) > -1 ? sp.whatsapp.indexOf(' ', 1) : 3;
+        setWhatsappPrefix([sp.whatsapp.substring(0, prefixEnd)]);
+        setWhatsappNumber(sp.whatsapp.substring(prefixEnd).trim());
+      } else {
+        setWhatsappNumber(sp.whatsapp);
+      }
+    }
+    
     setInstagram(sp?.instagram ?? '');
     setFacebook(sp?.facebook ?? '');
     setWebsite(sp?.website ?? '');
     setAvatarUrl(sp?.avatar_url ?? null);
     setCategoryId(sp?.business_category_id ?? sp?.business_category?.id ?? null);
     setCategoryName(sp?.business_category?.name ?? '');
+
+    // Parse carousel metadata from profile if available
+    if (sp?.carousel_metadata && Array.isArray(sp.carousel_metadata)) {
+      const titles: Record<number, string> = {};
+      const desc: Record<number, string> = {};
+      sp.carousel_metadata.forEach((item: any, idx: number) => {
+        titles[idx + 1] = item.title || '';
+        desc[idx + 1] = item.description || '';
+      });
+      setCarouselTitles(titles);
+      setCarouselDescriptions(desc);
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -143,6 +186,23 @@ export default function PerfilScreen() {
     if (uri) setPendingAvatarUri(uri);
   };
 
+  const handlePickPdf = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+    if (!result.canceled && result.assets[0]) {
+      setPendingPdf({ uri: result.assets[0].uri, name: result.assets[0].name, type: 'application/pdf' });
+    }
+  };
+
+  const handlePickExcel = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+      copyToCacheDirectory: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPendingExcel({ uri: result.assets[0].uri, name: result.assets[0].name, type: result.assets[0].mimeType ?? 'application/vnd.ms-excel' });
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!categoryId) {
       Alert.alert('Validación', 'Selecciona un rubro de negocio.');
@@ -151,25 +211,81 @@ export default function PerfilScreen() {
 
     setSaving(true);
     try {
+      const fullWhatsapp = whatsappPrefix.length > 0 && whatsappNumber ? `${whatsappPrefix[0]} ${whatsappNumber}` : whatsappNumber;
+
       const body = buildProfilePatchBody({
         business_category_id: categoryId,
         description,
         country,
         state,
-        whatsapp,
+        whatsapp: fullWhatsapp,
         instagram,
         facebook,
         website,
       });
 
-      // 1) Texto siempre como application/json (evita FormData vacío en RN)
-      await patchProfileJson(body);
+      const carousel_metadata = CATALOG_SLOTS.map((slot) => ({
+        title: carouselTitles[slot] || '',
+        description: carouselDescriptions[slot] || '',
+      }));
 
-      // 2) Avatar en otra petición multipart, solo si hay foto local nueva
-      if (isLocalImageUri(pendingAvatarUri)) {
-        await patchProfileAvatar(pendingAvatarUri);
+      // Si hay archivos, usamos FormData
+      if (pendingPdf || pendingExcel) {
+        const formData = new FormData();
+        Object.entries(body).forEach(([key, value]) => {
+          formData.append(key, value as string);
+        });
+        
+        // Agregar states si es array
+        if (Array.isArray(body.state)) {
+          body.state.forEach((s) => {
+            formData.append('state[]', s);
+          });
+          delete body.state; // remove string version
+        }
+
+        // Agregar carousel metadata como array JSON
+        carousel_metadata.forEach((meta, idx) => {
+          formData.append(`carousel_metadata[${idx}][title]`, meta.title);
+          formData.append(`carousel_metadata[${idx}][description]`, meta.description);
+        });
+
+        if (pendingPdf) {
+          formData.append('pdf', {
+            uri: pendingPdf.uri,
+            name: pendingPdf.name,
+            type: pendingPdf.type,
+          } as any);
+        }
+        if (pendingExcel) {
+          formData.append('excel', {
+            uri: pendingExcel.uri,
+            name: pendingExcel.name,
+            type: pendingExcel.type,
+          } as any);
+        }
+        if (isLocalImageUri(pendingAvatarUri)) {
+          formData.append('avatar', {
+            uri: pendingAvatarUri,
+            name: 'avatar.jpg',
+            type: 'image/jpeg',
+          } as any);
+        }
+
+        await patchProfileFormData(formData);
+      } else {
+        // Enviar normal
+        const bodyWithMeta = { ...body, carousel_metadata };
+        if (isLocalImageUri(pendingAvatarUri)) {
+          await patchProfileWithAvatar(bodyWithMeta, pendingAvatarUri);
+        } else {
+          await patchProfileJson(bodyWithMeta);
+        }
       }
+
       setPendingAvatarUri(null);
+      setPendingPdf(null);
+      setPendingExcel(null);
       await refreshSession();
       await load();
       Alert.alert('Éxito', 'Perfil guardado correctamente.');
@@ -311,23 +427,104 @@ export default function PerfilScreen() {
           <View style={styles.half}>
             <IsiInput label="País" value={country} onChangeText={setCountry} />
           </View>
+        </View>
+        
+        <View style={styles.multiSelectContainer}>
+          <Text style={styles.inputLabel}>Estados / Provincias</Text>
+          <MultiSelect
+            items={[
+              { id: 'CABA', name: 'CABA' },
+              { id: 'Buenos Aires', name: 'Buenos Aires' },
+              { id: 'Córdoba', name: 'Córdoba' },
+              { id: 'Santa Fe', name: 'Santa Fe' },
+              { id: 'Mendoza', name: 'Mendoza' },
+              { id: 'Tucumán', name: 'Tucumán' },
+              { id: 'Entre Ríos', name: 'Entre Ríos' },
+              { id: 'Salta', name: 'Salta' },
+              { id: 'Montevideo', name: 'Montevideo' }, // URU
+              { id: 'Canelones', name: 'Canelones' }, // URU
+              { id: 'Santiago', name: 'Santiago' }, // CHI
+              { id: 'Valparaíso', name: 'Valparaíso' }, // CHI
+            ]}
+            uniqueKey="id"
+            onSelectedItemsChange={setState}
+            selectedItems={state}
+            selectText="Seleccionar provincias"
+            searchInputPlaceholderText="Buscar provincia..."
+            tagRemoveIconColor="#E00000"
+            tagBorderColor="#E00000"
+            tagTextColor="#E00000"
+            selectedItemTextColor="#E00000"
+            selectedItemIconColor="#E00000"
+            itemTextColor="#000"
+            displayKey="name"
+            searchInputStyle={{ color: '#000' }}
+            submitButtonColor="#E00000"
+            submitButtonText="Aceptar"
+            styleMainWrapper={styles.multiSelectWrapper}
+            styleDropdownMenuSubsection={styles.multiSelectDropdown}
+          />
+        </View>
+
+        <IsiSectionTitle>Documentos del Mayorista</IsiSectionTitle>
+        <View style={styles.row}>
           <View style={styles.half}>
-            <IsiInput label="Estado / Provincia" value={state} onChangeText={setState} />
+             <IsiButton label={pendingPdf ? "PDF Listo ✓" : "Subir PDF"} onPress={handlePickPdf} variant={pendingPdf ? "primary" : "secondary"} />
+          </View>
+          <View style={styles.half}>
+             <IsiButton label={pendingExcel ? "Excel Listo ✓" : "Subir Excel"} onPress={handlePickExcel} variant={pendingExcel ? "primary" : "secondary"} />
           </View>
         </View>
       </View>
 
       <IsiSectionTitle>Contacto y redes</IsiSectionTitle>
       <View style={styles.fields}>
-        <IsiInput label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" />
-        <IsiInput label="Instagram" value={instagram} onChangeText={setInstagram} autoCapitalize="none" />
-        <IsiInput label="Facebook" value={facebook} onChangeText={setFacebook} autoCapitalize="none" />
+        <View style={styles.whatsappRow}>
+          <View style={styles.whatsappPrefix}>
+             <MultiSelect
+              items={[
+                { id: '+54', name: '🇦🇷 +54' },
+                { id: '+52', name: '🇲🇽 +52' },
+                { id: '+56', name: '🇨🇱 +56' },
+                { id: '+598', name: '🇺🇾 +598' },
+                { id: '+57', name: '🇨🇴 +57' },
+                { id: '+1', name: '🇺🇸 +1' },
+                { id: '+34', name: '🇪🇸 +34' },
+              ]}
+              uniqueKey="id"
+              onSelectedItemsChange={setWhatsappPrefix}
+              selectedItems={whatsappPrefix}
+              selectText="Prefijo"
+              searchInputPlaceholderText="Buscar"
+              tagRemoveIconColor="#E00000"
+              tagBorderColor="#E00000"
+              tagTextColor="#E00000"
+              selectedItemTextColor="#E00000"
+              selectedItemIconColor="#E00000"
+              itemTextColor="#000"
+              displayKey="name"
+              searchInputStyle={{ color: '#000' }}
+              submitButtonColor="#E00000"
+              submitButtonText="OK"
+              single
+              styleMainWrapper={styles.multiSelectWrapper}
+              styleDropdownMenuSubsection={styles.multiSelectDropdown}
+            />
+          </View>
+          <View style={styles.whatsappNum}>
+             <IsiInput label="Número (máx 12)" value={whatsappNumber} onChangeText={setWhatsappNumber} keyboardType="phone-pad" maxLength={12} />
+          </View>
+        </View>
+        <Text style={styles.nameHint}>El link web se autogenerará con mensaje predeterminado.</Text>
+        <IsiInput label="Instagram" value={instagram} onChangeText={setInstagram} autoCapitalize="none" maxLength={25} />
+        <IsiInput label="Facebook" value={facebook} onChangeText={setFacebook} autoCapitalize="none" maxLength={25} />
         <IsiInput label="Página web" value={website} onChangeText={setWebsite} autoCapitalize="none" />
       </View>
 
       <IsiSectionTitle>Catálogo — 5 posiciones (PDF: carruseles)</IsiSectionTitle>
       <Text style={styles.catalogHint}>
-        Toca cada carrusel para elegir una imagen. Se sube al instante (no hace falta pulsar Guardar perfil).
+        Toca cada carrusel para elegir una imagen. Se sube al instante en Base64 (no requiere Guardar perfil).
+        Avatar: se envía al pulsar Guardar perfil.
       </Text>
       {CATALOG_SLOTS.map((slot) => {
         const previewUri = getCatalogPreviewUri(slot);
@@ -335,6 +532,20 @@ export default function PerfilScreen() {
         return (
           <View key={slot} style={styles.catalogCard}>
             <Text style={styles.catalogTitle}>Carrusel {slot}</Text>
+            
+            <IsiInput
+              label="Título del carrusel"
+              maxLength={30}
+              value={carouselTitles[slot] || ''}
+              onChangeText={(val) => setCarouselTitles(prev => ({ ...prev, [slot]: val }))}
+            />
+            <IsiInput
+              label="Descripción del carrusel"
+              maxLength={65}
+              value={carouselDescriptions[slot] || ''}
+              onChangeText={(val) => setCarouselDescriptions(prev => ({ ...prev, [slot]: val }))}
+            />
+
             <Pressable
               style={styles.catalogSlot}
               onPress={() => handleCatalogSlot(slot)}
@@ -342,7 +553,7 @@ export default function PerfilScreen() {
               {previewUri ? (
                 <Image source={{ uri: previewUri }} style={styles.catalogPreview} contentFit="cover" />
               ) : (
-                <Text style={styles.carouselSlotText}>+ Añadir imagen</Text>
+                <Text style={styles.carouselSlotText}>+ Añadir imagen (máx 5)</Text>
               )}
               {isUploading ? (
                 <View style={styles.uploadingOverlay}>
@@ -398,6 +609,38 @@ const styles = StyleSheet.create({
     color: IsiPlazaColors.textSecondary,
     lineHeight: 16,
     marginTop: -IsiPlazaSpacing.sm,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: IsiPlazaColors.text,
+    marginBottom: IsiPlazaSpacing.xs,
+  },
+  multiSelectContainer: {
+    marginBottom: IsiPlazaSpacing.sm,
+  },
+  multiSelectWrapper: {
+    borderWidth: 1,
+    borderColor: IsiPlazaColors.border,
+    borderRadius: IsiPlazaRadius.sm,
+    paddingHorizontal: IsiPlazaSpacing.sm,
+    backgroundColor: '#fff',
+  },
+  multiSelectDropdown: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+  },
+  whatsappRow: {
+    flexDirection: 'row',
+    gap: IsiPlazaSpacing.sm,
+    alignItems: 'flex-start',
+    zIndex: 9999, // ensures dropdown appears over other elements
+  },
+  whatsappPrefix: {
+    flex: 1,
+  },
+  whatsappNum: {
+    flex: 2,
   },
   row: {
     flexDirection: 'row',
