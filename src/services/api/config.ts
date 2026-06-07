@@ -6,7 +6,11 @@ export const API_ROOT = (process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_HOST).replac
 
 export const SELLER_API_BASE = `${API_ROOT}/api/v1/seller`;
 
+export const CONSUMER_API_BASE = `${API_ROOT}/api/v1/consumer`;
+
 export const TOKEN_STORAGE_KEY = 'seller_token';
+
+export const CONSUMER_TOKEN_STORAGE_KEY = 'consumer_token';
 
 /**
  * Laravel suele devolver URLs con 127.0.0.1; en emulador Android hay que usar el mismo host que API_ROOT (10.0.2.2).

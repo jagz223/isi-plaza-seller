@@ -39,12 +39,12 @@ export default function MetricasScreen() {
       <Text style={styles.title}>Métricas de tu perfil en la aplicación de usuarios</Text>
 
       <MetricCard
-        label="Usuarios que han clickeado tu perfil el último mes"
-        value={metrics?.profile_views_count ?? 0}
-      />
-      <MetricCard
         label="Usuarios que han clickeado tu whatsapp último mes"
         value={metrics?.whatsapp_clicks_count ?? 0}
+      />
+      <MetricCard
+        label="Usuarios que han clickeado tu página web último mes"
+        value={metrics?.website_clicks_count ?? 0}
       />
 
       {metrics?.period_label ? (

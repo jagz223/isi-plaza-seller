@@ -7,3 +7,5 @@ export { IsiScreen } from './IsiScreen';
 export { IsiSectionTitle } from './IsiSectionTitle';
 export { LoadingOverlay } from './LoadingOverlay';
 export { MetricCard } from './MetricCard';
+export { SearchableSelect } from './SearchableSelect';
+export type { SelectOption } from './SearchableSelect';

@@ -20,6 +20,8 @@ export type SellerProfile = {
   subscription_expires_at: string | null;
   subscription_granted_at: string | null;
   avatar_url?: string | null;
+  pdf_url?: string | null;
+  excel_url?: string | null;
   description?: string | null;
   country?: string | null;
   state?: string | null;
@@ -29,6 +31,7 @@ export type SellerProfile = {
   website?: string | null;
   business_category_id?: number | null;
   business_category?: BusinessCategory | null;
+  carousel_metadata?: { title?: string; description?: string }[];
 };
 
 export type SellerUser = {
@@ -52,7 +55,9 @@ export type MeResponse = {
 };
 
 export type SubscriptionResponse = {
+  subscription_plan_label: string;
   subscription_price_label: string;
+  subscribe_button_label: string;
   whatsapp_payment_url: string;
   access_status: AccessStatus;
   can_access_app: boolean;
@@ -60,16 +65,19 @@ export type SubscriptionResponse = {
   message: string;
 };
 
+export type SellerInteractionEventType = 'whatsapp_click' | 'website_click';
+
 export type MetricsResponse = {
   period_label: string;
-  profile_views_count: number;
   whatsapp_clicks_count: number;
+  website_clicks_count: number;
 };
 
 export type SettingsResponse = {
   subscription_expires_at: string | null;
   subscription_expires_at_formatted: string | null;
   promotion_whatsapp_url: string;
+  promotion_button_label: string;
   has_paid_promotion: boolean;
 };
 

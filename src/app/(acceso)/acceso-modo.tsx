@@ -1,50 +1,19 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, Animated, Dimensions, Pressable } from 'react-native';
-import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IsiPlazaColors } from '@/constants/isi-plaza';
+import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { useAppMode } from '@/contexts/AppModeContext';
-
-const { width, height } = Dimensions.get('window');
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function AccesoModoScreen() {
   const router = useRouter();
   const { setAppMode } = useAppMode();
-  
-  // Decorative animations
-  const floatAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        })
-      ])
-    ).start();
-  }, [floatAnim]);
-
-  const floatInterpolate = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -15],
-  });
-
-  const handleComprador = async () => {
-    await setAppMode('comprador');
-    router.replace('/(buyer)/buscar');
+  const handleComprador = () => {
+    router.replace('/(acceso)/comprador-acceso');
   };
 
   const handleMayorista = async () => {
@@ -53,168 +22,203 @@ export default function AccesoModoScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="light" />
-      
-      {/* Decorative Background Mesh */}
-      <View style={styles.blob1} />
-      <View style={styles.blob2} />
-      
-      <View style={styles.content}>
-        <Animated.View style={[styles.logoWrapper, { transform: [{ translateY: floatInterpolate }] }]}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../../../Logo.jpeg')}
-              style={styles.logo}
-              contentFit="contain"
-            />
-          </View>
-        </Animated.View>
 
-        <Text style={styles.title}>Bienvenido a ISI PLAZA</Text>
-        <Text style={styles.subtitle}>Selecciona el perfil con el que deseas ingresar a la plataforma</Text>
+      <View style={styles.header}>
+        <View style={styles.headerCurve} />
+        <View style={styles.logoWrap}>
+          <Image
+            source={require('@/assets/images/splash-brand.jpg')}
+            style={styles.logo}
+            contentFit="contain"
+          />
+        </View>
+      </View>
 
-        <View style={styles.cardsContainer}>
-          <Pressable 
-            style={({ pressed }) => [styles.modeCard, pressed && styles.cardPressed]}
+      <View style={styles.body}>
+        <View style={styles.buttons}>
+          <Pressable
+            style={({ pressed }) => [styles.modeButtonOutline, pressed && styles.pressed]}
             onPress={handleComprador}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: '#4CAF5020' }]}>
-              <Ionicons name="cart-outline" size={32} color="#4CAF50" />
+            accessibilityRole="button"
+            accessibilityLabel="Busco Mayoristas">
+            <View style={styles.iconBoxOutline}>
+              <Ionicons name="search" size={36} color={IsiPlazaColors.primary} />
             </View>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Busco mayorista</Text>
-              <Text style={styles.cardDesc}>Explora y compra productos al por mayor.</Text>
+            <View style={styles.buttonTextCol}>
+              <Text style={styles.titleOutline}>Busco Mayoristas</Text>
+              <View style={styles.pillOutline}>
+                <Text style={styles.pillTextOutline}>cerca de tu ubicación</Text>
+              </View>
             </View>
-            <Ionicons name="chevron-forward" size={24} color={IsiPlazaColors.textSecondary} />
           </Pressable>
 
-          <Pressable 
-            style={({ pressed }) => [styles.modeCard, pressed && styles.cardPressed]}
+          <Pressable
+            style={({ pressed }) => [styles.modeButtonFilled, pressed && styles.pressedFilled]}
             onPress={handleMayorista}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: `${IsiPlazaColors.primary}20` }]}>
-              <Ionicons name="business-outline" size={32} color={IsiPlazaColors.primary} />
+            accessibilityRole="button"
+            accessibilityLabel="Soy Mayorista">
+            <View style={styles.iconBoxFilled}>
+              <Ionicons name="home-outline" size={36} color={IsiPlazaColors.white} />
             </View>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Soy Mayorista</Text>
-              <Text style={styles.cardDesc}>Gestiona tu catálogo y perfil de ventas.</Text>
+            <View style={styles.buttonTextCol}>
+              <Text style={styles.titleFilled}>Soy Mayorista</Text>
+              <View style={styles.pillFilled}>
+                <Text style={styles.pillTextFilled}>directorio B2B premium</Text>
+              </View>
             </View>
-            <Ionicons name="chevron-forward" size={24} color={IsiPlazaColors.textSecondary} />
           </Pressable>
         </View>
+
+        <Text style={styles.terms}>Terminos y condiciones de la app</Text>
       </View>
     </SafeAreaView>
   );
 }
 
+const HEADER_HEIGHT = 280;
+
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: '#0A0A0A', // Dark aesthetic
-  },
-  blob1: {
-    position: 'absolute',
-    top: -100,
-    left: -50,
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: 999,
-    backgroundColor: IsiPlazaColors.primary,
-    opacity: 0.15,
-    filter: 'blur(50px)' as any,
-  },
-  blob2: {
-    position: 'absolute',
-    bottom: -150,
-    right: -100,
-    width: width * 0.9,
-    height: width * 0.9,
-    borderRadius: 999,
-    backgroundColor: '#4CAF50',
-    opacity: 0.1,
-    filter: 'blur(60px)' as any,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  logoWrapper: {
-    marginBottom: 40,
-    shadowColor: IsiPlazaColors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  logoContainer: {
     backgroundColor: IsiPlazaColors.white,
-    padding: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  header: {
+    height: HEADER_HEIGHT,
+    overflow: 'hidden',
+    backgroundColor: IsiPlazaColors.white,
+  },
+  headerCurve: {
+    position: 'absolute',
+    top: 0,
+    left: -48,
+    right: -48,
+    height: HEADER_HEIGHT - 24,
+    backgroundColor: IsiPlazaColors.primary,
+    borderBottomLeftRadius: 220,
+    borderBottomRightRadius: 220,
+  },
+  logoWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: IsiPlazaSpacing.lg,
+    paddingBottom: IsiPlazaSpacing.xl,
   },
   logo: {
-    width: 220,
-    height: 110,
+    width: 200,
+    height: 120,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFF',
-    marginBottom: 12,
-    textAlign: 'center',
-    letterSpacing: 0.5,
+  body: {
+    flex: 1,
+    paddingHorizontal: IsiPlazaSpacing.lg,
+    justifyContent: 'space-between',
+    paddingBottom: IsiPlazaSpacing.md,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#A0A0A0',
-    marginBottom: 48,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 24,
+  buttons: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: IsiPlazaSpacing.lg,
+    paddingVertical: IsiPlazaSpacing.xl,
   },
-  cardsContainer: {
-    width: '100%',
-    gap: 16,
-  },
-  modeCard: {
+  modeButtonOutline: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 20,
+    backgroundColor: IsiPlazaColors.white,
+    borderWidth: 2,
+    borderColor: IsiPlazaColors.primary,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: IsiPlazaSpacing.lg,
+    paddingHorizontal: IsiPlazaSpacing.lg,
+    minHeight: 110,
+    gap: IsiPlazaSpacing.md,
+    shadowColor: IsiPlazaColors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  cardPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.98 }],
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
+  modeButtonFilled: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    backgroundColor: IsiPlazaColors.primary,
+    borderRadius: 20,
+    paddingVertical: IsiPlazaSpacing.lg,
+    paddingHorizontal: IsiPlazaSpacing.lg,
+    minHeight: 110,
+    gap: IsiPlazaSpacing.md,
+    shadowColor: IsiPlazaColors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 5,
   },
-  cardText: {
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
+  pressedFilled: {
+    opacity: 0.95,
+    transform: [{ scale: 0.99 }],
+  },
+  iconBoxOutline: {
+    width: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBoxFilled: {
+    width: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonTextCol: {
     flex: 1,
+    alignItems: 'center',
+    gap: IsiPlazaSpacing.sm,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFF',
-    marginBottom: 4,
+  titleOutline: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
+    textAlign: 'center',
   },
-  cardDesc: {
-    fontSize: 14,
-    color: '#A0A0A0',
-    lineHeight: 20,
+  titleFilled: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: IsiPlazaColors.white,
+    textAlign: 'center',
+  },
+  pillOutline: {
+    borderWidth: 1.5,
+    borderColor: IsiPlazaColors.primary,
+    borderRadius: IsiPlazaRadius.pill,
+    paddingHorizontal: IsiPlazaSpacing.md,
+    paddingVertical: 6,
+  },
+  pillTextOutline: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: IsiPlazaColors.primary,
+    textAlign: 'center',
+  },
+  pillFilled: {
+    borderWidth: 1.5,
+    borderColor: IsiPlazaColors.white,
+    borderRadius: IsiPlazaRadius.pill,
+    paddingHorizontal: IsiPlazaSpacing.md,
+    paddingVertical: 6,
+  },
+  pillTextFilled: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: IsiPlazaColors.white,
+    textAlign: 'center',
+  },
+  terms: {
+    fontSize: 13,
+    color: IsiPlazaColors.text,
+    textAlign: 'center',
+    paddingVertical: IsiPlazaSpacing.md,
   },
 });

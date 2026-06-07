@@ -1,10 +1,18 @@
-import * as FileSystem from 'expo-file-system';
+import {
+  appendPreparedFileToFormData,
+  prepareFileForMultipart,
+  type PreparedMultipartFile,
+} from '@/utils/prepare-multipart-file';
 
-export type PreparedImageUpload = {
-  uri: string;
-  name: string;
-  type: string;
-};
+export type PreparedImageUpload = PreparedMultipartFile;
+
+export function appendPreparedImageToFormData(
+  formData: FormData,
+  fieldName: string,
+  prepared: PreparedImageUpload,
+): void {
+  appendPreparedFileToFormData(formData, fieldName, prepared);
+}
 
 /**
  * Copia la imagen a cache file:// para que PHP reciba el binario en $_FILES.
@@ -15,30 +23,5 @@ export async function prepareImageForMultipart(localUri: string): Promise<Prepar
   const name = rawName.includes('.') ? rawName : `${rawName}.jpg`;
   const type = name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-  const needsCopy =
-    localUri.startsWith('content://') ||
-    localUri.startsWith('ph://') ||
-    localUri.startsWith('assets-library://') ||
-    !localUri.startsWith('file://');
-
-  let uploadUri = localUri;
-
-  if (needsCopy) {
-    const cacheDir = FileSystem.cacheDirectory;
-    if (!cacheDir) {
-      throw new Error('No hay directorio de caché para preparar la imagen.');
-    }
-    uploadUri = `${cacheDir}upload-${Date.now()}-${name}`;
-    await FileSystem.copyAsync({ from: localUri, to: uploadUri });
-  }
-
-  const info = await FileSystem.getInfoAsync(uploadUri);
-  if (!info.exists) {
-    throw new Error('No se pudo leer la imagen seleccionada.');
-  }
-  if ('size' in info && info.size !== undefined && info.size === 0) {
-    throw new Error('La imagen seleccionada está vacía.');
-  }
-
-  return { uri: uploadUri, name, type };
+  return prepareFileForMultipart(localUri, name, type);
 }

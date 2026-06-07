@@ -1,10 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
+import { LoadingOverlay } from '@/components/isi-plaza';
 import { IsiPlazaColors } from '@/constants/isi-plaza';
+import { useConsumerAuth } from '@/contexts/ConsumerAuthContext';
 
 export default function BuyerLayout() {
+  const { isLoading, isAuthenticated } = useConsumerAuth();
+
+  if (isLoading) {
+    return <LoadingOverlay />;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(acceso)/comprador-acceso" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
@@ -30,8 +42,7 @@ export default function BuyerLayout() {
       <Tabs.Screen
         name="mayoristas"
         options={{
-          title: 'Mayoristas',
-          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

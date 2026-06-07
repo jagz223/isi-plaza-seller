@@ -2,9 +2,10 @@ import { Image } from 'expo-image';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 
 import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
+import { Routes } from '@/constants/routes';
 
 type IsiHeaderProps = {
   compact?: boolean;
@@ -12,17 +13,35 @@ type IsiHeaderProps = {
   variant?: 'access' | 'admin';
   title?: string;
   showBack?: boolean;
+  /** Si no hay historial (p. ej. llegó con replace), navegar aquí en lugar de router.back() */
+  backFallbackHref?: Href;
 };
 
-export function IsiHeader({ compact = false, variant = 'access', title, showBack = false }: IsiHeaderProps) {
+export function IsiHeader({
+  compact = false,
+  variant = 'access',
+  title,
+  showBack = false,
+  backFallbackHref = Routes.accesoModo,
+}: IsiHeaderProps) {
   const router = useRouter();
-  
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    if (backFallbackHref) {
+      router.replace(backFallbackHref);
+    }
+  };
+
   return (
     <View style={[styles.wrapper, compact && styles.wrapperCompact, title && styles.wrapperWithTitle]}>
       <View style={[styles.curve, compact && styles.curveCompact]} />
       
       {showBack && (
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={variant === 'access' ? IsiPlazaColors.white : IsiPlazaColors.text} />
         </Pressable>
       )}

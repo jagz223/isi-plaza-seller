@@ -102,7 +102,10 @@ export default function AjustesScreen() {
         <Text style={styles.subscriptionText}>{expiresText}</Text>
       </View>
 
-      <IsiButton label="Comprar promoción (banners)" onPress={openPromotionWhatsApp} />
+      <IsiButton
+        label={settings?.promotion_button_label ?? 'Comprar promoción (banners)'}
+        onPress={openPromotionWhatsApp}
+      />
 
       <IsiSectionTitle>Cambiar contraseña</IsiSectionTitle>
       <View style={styles.fields}>

@@ -59,12 +59,17 @@ export default function SuscripcionScreen() {
       <IsiHeader variant="access" compact />
       <IsiScreen contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.priceLabel}>Plan mayorista</Text>
+          <Text style={styles.priceLabel}>
+            {subscription?.subscription_plan_label ?? 'Plan mayorista'}
+          </Text>
           <Text style={styles.price}>
             {subscription?.subscription_price_label ?? 'Suscripción mensual de 69 MXN'}
           </Text>
           {subscription?.message ? <Text style={styles.hint}>{subscription.message}</Text> : null}
-          <IsiButton label="Suscribirme" onPress={openWhatsApp} />
+          <IsiButton
+            label={subscription?.subscribe_button_label ?? 'Suscribirme'}
+            onPress={openWhatsApp}
+          />
         </View>
 
         <View style={styles.blockedCard}>
