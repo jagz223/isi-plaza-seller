@@ -15,6 +15,8 @@ import { fetchConsumerBusinessCategories } from '@/services/api/consumer';
 import type { BusinessCategory } from '@/types/seller-api';
 
 const CATEGORY_ROW_GAP = 14;
+const CATEGORY_ROW_MARGIN_BOTTOM = CATEGORY_ROW_GAP + 10;
+const SUBTITLE_VERTICAL_MARGIN = 30;
 const CATEGORY_FONT_SIZE = 17;
 const CATEGORY_LINE_HEIGHT = 22;
 const SUBTITLE_FONT_SIZE = 16;
@@ -74,9 +76,7 @@ export default function BuscarScreen() {
 
         {!loading && !error && categories.length > 0 && (
           <View style={styles.categoriesWrap}>
-            <Text style={styles.subtitle}>
-              BUSCA MAYORISTAS POR PAÍS Y ESTADO, CHECA SU CATÁLOGO Y CONTACTALO
-            </Text>
+            <Text style={styles.subtitle}>TODO TIPO DE MAYORISTAS</Text>
             <FlatList
               data={categories}
               numColumns={2}
@@ -161,11 +161,11 @@ const styles = StyleSheet.create({
   },
   row: {
     gap: 12,
-    marginBottom: CATEGORY_ROW_GAP,
+    marginBottom: CATEGORY_ROW_MARGIN_BOTTOM,
   },
   subtitle: {
-    marginTop: IsiPlazaSpacing.md,
-    marginBottom: CATEGORY_ROW_GAP,
+    marginTop: SUBTITLE_VERTICAL_MARGIN,
+    marginBottom: SUBTITLE_VERTICAL_MARGIN,
     paddingLeft: IsiPlazaSpacing.sm,
     paddingRight: 2,
     fontSize: SUBTITLE_FONT_SIZE,

@@ -8,4 +8,5 @@ export { IsiSectionTitle } from './IsiSectionTitle';
 export { LoadingOverlay } from './LoadingOverlay';
 export { MetricCard } from './MetricCard';
 export { SearchableSelect } from './SearchableSelect';
+export { TermsAndConditionsModal } from './TermsAndConditionsModal';
 export type { SelectOption } from './SearchableSelect';

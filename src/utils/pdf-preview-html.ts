@@ -1,17 +1,30 @@
 const PDF_JS_VERSION = '3.11.174';
 
-export function buildPdfJsPreviewHtml(fileName: string, maxPages = 3): string {
+/** Altura fija del WebView: el scroll ocurre dentro del visor, no en la pantalla padre. */
+export const PDF_PREVIEW_WEBVIEW_HEIGHT = 480;
+
+export function buildPdfJsPreviewHtml(fileName: string): string {
   const escapedName = fileName.replace(/'/g, "\\'");
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #ffffff; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+    }
     #status {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 14px;
@@ -19,7 +32,7 @@ export function buildPdfJsPreviewHtml(fileName: string, maxPages = 3): string {
       text-align: center;
       padding: 32px 16px;
     }
-    #pages { padding: 8px 8px 16px; }
+    #pages { padding: 8px 8px 24px; min-height: 100%; }
     canvas {
       display: block;
       width: 100% !important;
@@ -35,7 +48,6 @@ export function buildPdfJsPreviewHtml(fileName: string, maxPages = 3): string {
   <script>
     (function () {
       var fileName = '${escapedName}';
-      var maxPages = ${maxPages};
       var status = document.getElementById('status');
       var container = document.getElementById('pages');
 
@@ -47,24 +59,28 @@ export function buildPdfJsPreviewHtml(fileName: string, maxPages = 3): string {
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.worker.min.js';
 
+      function renderPage(pdf, pageNum) {
+        return pdf.getPage(pageNum).then(function (page) {
+          var viewport = page.getViewport({ scale: 1.15 });
+          var canvas = document.createElement('canvas');
+          var context = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          container.appendChild(canvas);
+          return page.render({ canvasContext: context, viewport: viewport }).promise;
+        });
+      }
+
       pdfjsLib.getDocument(fileName).promise
         .then(function (pdf) {
           status.style.display = 'none';
-          var pagesToRender = Math.min(pdf.numPages, maxPages);
-
-          for (var pageNum = 1; pageNum <= pagesToRender; pageNum++) {
+          var chain = Promise.resolve();
+          for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             (function (num) {
-              pdf.getPage(num).then(function (page) {
-                var viewport = page.getViewport({ scale: 1.15 });
-                var canvas = document.createElement('canvas');
-                var context = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                container.appendChild(canvas);
-                return page.render({ canvasContext: context, viewport: viewport }).promise;
-              });
+              chain = chain.then(function () { return renderPage(pdf, num); });
             })(pageNum);
           }
+          return chain;
         })
         .catch(function () {
           status.textContent = 'No se pudo mostrar la vista previa del PDF.';

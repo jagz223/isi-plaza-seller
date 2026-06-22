@@ -2,15 +2,18 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TermsAndConditionsModal } from '@/components/isi-plaza/TermsAndConditionsModal';
 import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { useAppMode } from '@/contexts/AppModeContext';
 
 export default function AccesoModoScreen() {
   const router = useRouter();
   const { setAppMode } = useAppMode();
+  const [termsVisible, setTermsVisible] = useState(false);
 
   const handleComprador = () => {
     router.replace('/(acceso)/comprador-acceso');
@@ -71,8 +74,15 @@ export default function AccesoModoScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.terms}>Terminos y condiciones de la app</Text>
+        <Pressable
+          onPress={() => setTermsVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Ver términos y condiciones">
+          <Text style={styles.terms}>Términos y condiciones de la app</Text>
+        </Pressable>
       </View>
+
+      <TermsAndConditionsModal visible={termsVisible} onClose={() => setTermsVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -217,8 +227,9 @@ const styles = StyleSheet.create({
   },
   terms: {
     fontSize: 13,
-    color: IsiPlazaColors.text,
+    color: IsiPlazaColors.primary,
     textAlign: 'center',
     paddingVertical: IsiPlazaSpacing.md,
+    textDecorationLine: 'underline',
   },
 });

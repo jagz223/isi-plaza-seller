@@ -112,7 +112,7 @@ export default function CompradorAccesoScreen() {
               <View style={styles.whatsappRow}>
                 <View style={styles.dialCodeWrap}>
                   <SearchableSelect
-                    label=""
+                    label="Código"
                     placeholder="Prefijo"
                     options={getDialCodeOptions()}
                     value={whatsappDialCode}

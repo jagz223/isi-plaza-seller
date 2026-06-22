@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,10 +26,10 @@ import {
 } from '@/services/api/consumer';
 import type { ConsumerSellerDetail } from '@/types/consumer-api';
 import { CatalogDocumentEmbed } from '@/components/buyer/CatalogDocumentEmbed';
+import { SellerVerifiedBadge } from '@/components/buyer/SellerVerifiedBadge';
 import { buildProductCarousels } from '@/utils/build-product-carousels';
 import { downloadConsumerDocument } from '@/utils/download-consumer-document';
 const CATALOG_THUMB = 108;
-const VERIFIED_BADGE_RED = '#FF4C4D';
 
 function socialUrl(base: string, value: string | null | undefined): string | null {
   if (!value?.trim()) {
@@ -258,21 +259,15 @@ export default function MayoristaDetailScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={Platform.OS === 'android'}>
         <View style={[styles.heroWrap, { width: heroWidth }]}>
           {mayorista.avatar_url ? (
             <Image source={{ uri: mayorista.avatar_url }} style={styles.heroImage} contentFit="cover" />
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]} />
           )}
-          {mayorista.is_verified ? (
-            <View style={styles.heroVerifiedBadge}>
-              <Text style={styles.heroVerifiedText}>Mayorista Verificado</Text>
-              <View style={styles.heroVerifiedIcon}>
-                <Ionicons name="checkmark" size={16} color={IsiPlazaColors.white} />
-              </View>
-            </View>
-          ) : null}
+          {mayorista.is_verified ? <SellerVerifiedBadge /> : null}
         </View>
 
         <View style={styles.body}>
@@ -322,15 +317,6 @@ export default function MayoristaDetailScreen() {
                     disabled={!mayorista.pdf_url}
                     loading={downloadingPdf}
                   />
-                  {mayorista.avatar_url ? (
-                    <View style={styles.catalogLogoWrap}>
-                      <Image
-                        source={{ uri: mayorista.avatar_url }}
-                        style={styles.catalogLogo}
-                        contentFit="contain"
-                      />
-                    </View>
-                  ) : null}
                   {mayorista.pdf_url ? (
                     <CatalogDocumentEmbed url={mayorista.pdf_url} type="pdf" />
                   ) : null}
@@ -436,35 +422,6 @@ const styles = StyleSheet.create({
     backgroundColor: IsiPlazaColors.backgroundMuted,
     position: 'relative',
   },
-  heroVerifiedBadge: {
-    position: 'absolute',
-    right: IsiPlazaSpacing.sm,
-    bottom: IsiPlazaSpacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: IsiPlazaColors.black,
-    borderRadius: IsiPlazaRadius.pill,
-    paddingLeft: 12,
-    paddingRight: 6,
-    paddingVertical: 6,
-    gap: 8,
-    maxWidth: '92%',
-  },
-  heroVerifiedText: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '800',
-    color: IsiPlazaColors.white,
-    letterSpacing: 0.2,
-  },
-  heroVerifiedIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: VERIFIED_BADGE_RED,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   heroImage: {
     width: '100%',
     height: '100%',
@@ -566,14 +523,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: IsiPlazaColors.text,
-  },
-  catalogLogoWrap: {
-    alignItems: 'center',
-    paddingVertical: IsiPlazaSpacing.sm,
-  },
-  catalogLogo: {
-    width: 160,
-    height: 80,
   },
   carouselBlock: {
     gap: 0,

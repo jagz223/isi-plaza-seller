@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IsiPlazaColors } from '@/constants/isi-plaza';
@@ -14,6 +14,7 @@ export function IsiScreen({ withHeader = false, children, contentContainerStyle,
       <SafeAreaView style={styles.safe} edges={withHeader ? ['bottom'] : ['top', 'bottom']}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={Platform.OS === 'android'}
           contentContainerStyle={[styles.content, contentContainerStyle]}
           {...rest}>
           {children}

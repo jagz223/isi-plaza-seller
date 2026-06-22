@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { SellerVerifiedBadge } from '@/components/buyer/SellerVerifiedBadge';
 import {
   SELLER_CARD_AVATAR_HEIGHT,
   SELLER_CARD_DESC_FONT_SIZE,
@@ -14,6 +15,7 @@ export type SellerGridCardData = {
   name: string;
   description?: string | null;
   avatar_url?: string | null;
+  is_verified?: boolean;
 };
 
 type Props = {
@@ -27,21 +29,24 @@ export function SellerGridCard({ seller, width, onPress }: Props) {
     <Pressable
       style={[styles.card, { width, maxWidth: width }]}
       onPress={onPress}>
-      {seller.avatar_url ? (
-        <Image
-          source={{ uri: seller.avatar_url }}
-          style={[styles.cardImage, { width, height: SELLER_CARD_AVATAR_HEIGHT }]}
-          contentFit="cover"
-        />
-      ) : (
-        <View
-          style={[
-            styles.cardImage,
-            styles.cardImagePlaceholder,
-            { width, height: SELLER_CARD_AVATAR_HEIGHT },
-          ]}
-        />
-      )}
+      <View style={[styles.cardImageWrap, { width, height: SELLER_CARD_AVATAR_HEIGHT }]}>
+        {seller.avatar_url ? (
+          <Image
+            source={{ uri: seller.avatar_url }}
+            style={[styles.cardImage, { width, height: SELLER_CARD_AVATAR_HEIGHT }]}
+            contentFit="cover"
+          />
+        ) : (
+          <View
+            style={[
+              styles.cardImage,
+              styles.cardImagePlaceholder,
+              { width, height: SELLER_CARD_AVATAR_HEIGHT },
+            ]}
+          />
+        )}
+        {seller.is_verified ? <SellerVerifiedBadge variant="card" /> : null}
+      </View>
       <Text style={[styles.cardName, { maxWidth: width }]} numberOfLines={2} ellipsizeMode="tail">
         {seller.name}
       </Text>
@@ -65,8 +70,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: IsiPlazaColors.white,
   },
-  cardImage: {
+  cardImageWrap: {
+    position: 'relative',
     alignSelf: 'center',
+  },
+  cardImage: {
     backgroundColor: IsiPlazaColors.backgroundMuted,
   },
   cardImagePlaceholder: {

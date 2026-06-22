@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { WebView } from 'react-native-webview';
 
 import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
-import { buildPdfJsPreviewHtml } from '@/utils/pdf-preview-html';
+import { buildPdfJsPreviewHtml, PDF_PREVIEW_WEBVIEW_HEIGHT } from '@/utils/pdf-preview-html';
 import { resolvePdfPreviewFile } from '@/utils/pdf-preview-file';
 import { readUriAsArrayBuffer } from '@/utils/read-uri-as-array-buffer';
 import { buildLocalSpreadsheetPreviewHtml } from '@/utils/spreadsheet-preview-html';
@@ -58,6 +58,10 @@ const webViewProps = Platform.OS === 'web'
       javaScriptEnabled: true,
       domStorageEnabled: true,
       setSupportMultipleWindows: false,
+      nestedScrollEnabled: true,
+      scrollEnabled: true,
+      showsVerticalScrollIndicator: true,
+      bounces: false,
     };
 
 function PdfPreview({ uri, fileName }: { uri: string; fileName?: string }) {
@@ -137,8 +141,8 @@ function PdfPreview({ uri, fileName }: { uri: string; fileName?: string }) {
 
   if (Platform.OS === 'web' && webBlobUrl) {
     return (
-      <View style={styles.wrap}>
-        <iframe src={webBlobUrl} style={styles.frame} title="Vista previa PDF" />
+      <View style={styles.pdfWrap}>
+        <iframe src={webBlobUrl} style={styles.pdfFrame} title="Vista previa PDF" />
       </View>
     );
   }
@@ -154,10 +158,10 @@ function PdfPreview({ uri, fileName }: { uri: string; fileName?: string }) {
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.pdfWrap}>
       <WebView
         source={{ html, baseUrl }}
-        style={styles.webview}
+        style={styles.pdfWebview}
         startInLoadingState
         onError={() => setWebViewFailed(true)}
         onHttpError={() => setWebViewFailed(true)}
@@ -227,16 +231,16 @@ function ExcelPreview({ uri, fileName }: { uri: string; fileName?: string }) {
   if (Platform.OS === 'web') {
     return (
       <View style={styles.wrap}>
-        <iframe srcDoc={localHtml} style={styles.frame} title="Vista previa Excel" sandbox="allow-same-origin" />
+        <iframe srcDoc={localHtml} style={styles.excelFrame} title="Vista previa Excel" sandbox="allow-same-origin" />
       </View>
     );
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.excelWrap}>
       <WebView
         source={{ html: localHtml }}
-        style={styles.webview}
+        style={styles.excelWebview}
         startInLoadingState
         onError={() => setWebViewFailed(true)}
         onHttpError={() => setWebViewFailed(true)}
@@ -261,10 +265,10 @@ function RemoteExcelPreview({ uri, fileName }: { uri: string; fileName?: string 
   const embedSource = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(uri)}`;
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.excelWrap}>
       <WebView
         source={{ uri: embedSource }}
-        style={styles.webview}
+        style={styles.excelWebview}
         startInLoadingState
         onError={() => setUseOfficeEmbed(false)}
         onHttpError={() => setUseOfficeEmbed(false)}
@@ -295,25 +299,47 @@ export function SellerDocumentPreview({ uri, type, fileName }: Props) {
   return <ExcelPreview uri={uri} fileName={fileName} />;
 }
 
+const documentChrome = {
+  width: '100%' as const,
+  borderRadius: IsiPlazaRadius.md,
+  overflow: 'hidden' as const,
+  borderWidth: 1,
+  borderColor: IsiPlazaColors.border,
+  backgroundColor: IsiPlazaColors.backgroundMuted,
+  marginTop: IsiPlazaSpacing.sm,
+};
+
 const styles = StyleSheet.create({
   wrap: {
-    width: '100%',
+    ...documentChrome,
     minHeight: 360,
-    borderRadius: IsiPlazaRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.border,
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-    marginTop: IsiPlazaSpacing.sm,
   },
-  frame: {
+  pdfWrap: {
+    ...documentChrome,
+    height: PDF_PREVIEW_WEBVIEW_HEIGHT,
+  },
+  excelWrap: {
+    ...documentChrome,
+    height: PDF_PREVIEW_WEBVIEW_HEIGHT,
+  },
+  pdfFrame: {
     width: '100%',
-    height: 420,
+    height: PDF_PREVIEW_WEBVIEW_HEIGHT,
     borderWidth: 0,
   } as object,
-  webview: {
-    flex: 1,
-    minHeight: 360,
+  excelFrame: {
+    width: '100%',
+    height: PDF_PREVIEW_WEBVIEW_HEIGHT,
+    borderWidth: 0,
+  } as object,
+  pdfWebview: {
+    width: '100%',
+    height: PDF_PREVIEW_WEBVIEW_HEIGHT,
+    backgroundColor: IsiPlazaColors.white,
+  },
+  excelWebview: {
+    width: '100%',
+    height: PDF_PREVIEW_WEBVIEW_HEIGHT,
     backgroundColor: IsiPlazaColors.white,
   },
   loading: {

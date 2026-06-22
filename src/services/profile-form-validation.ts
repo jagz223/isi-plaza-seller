@@ -1,3 +1,6 @@
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
+
 import {
   CATALOG_CAROUSEL_COUNT,
   countPendingCatalogImages,
@@ -20,7 +23,7 @@ function buildSavedCountBySlot(catalogImages: CatalogImage[]): Map<number, numbe
 
 const MAX_DESCRIPTION = 100;
 const MAX_WHATSAPP_DIGITS = 12;
-const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 300 * 1024 * 1024;
 
 export type ProfileFormValidationInput = {
   businessName: string;
@@ -144,21 +147,38 @@ export function validateProfileFormBeforeSave(input: ProfileFormValidationInput)
   return null;
 }
 
-/** Tras elegir archivo en web, comprobar tamaño si el blob está disponible. */
+async function readDocumentByteSize(uri: string): Promise<number | null> {
+  if (Platform.OS === 'web') {
+    if (typeof fetch === 'undefined') return null;
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return blob.size;
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    if (info.exists && 'size' in info && typeof info.size === 'number') {
+      return info.size;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/** Tras elegir archivo, comprobar que no supere 300 MB (web y móvil). */
 export async function validateDocumentSizeOnWeb(
   uri: string,
   label: string,
 ): Promise<string | null> {
-  if (typeof fetch === 'undefined') return null;
-
-  try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    if (blob.size > MAX_DOCUMENT_BYTES) {
-      return `${label} no puede superar 10 MB.`;
-    }
-  } catch {
-    return null;
+  const size = await readDocumentByteSize(uri);
+  if (size != null && size > MAX_DOCUMENT_BYTES) {
+    return `${label} no puede superar 300 MB.`;
   }
 
   return null;

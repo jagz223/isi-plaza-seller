@@ -122,34 +122,56 @@ export function SearchableSelect({
     return `${prefix}: ${displayValue.toUpperCase()}`;
   }, [displayValue, pillPrefix, placeholder]);
 
+  const trigger = (
+    <Pressable
+      style={[
+        isPill ? styles.triggerPill : styles.trigger,
+        !isPill && compact && styles.triggerCompact,
+        disabled && styles.triggerDisabled,
+      ]}
+      onPress={open}
+      disabled={disabled}>
+      {isPill ? (
+        <Text style={styles.triggerPillText} numberOfLines={1}>
+          {pillText}
+        </Text>
+      ) : compact ? (
+        <>
+          {label ? <Text style={styles.triggerInlineLabel}>{label}</Text> : null}
+          <View style={styles.triggerRow}>
+            <Text
+              style={[styles.triggerValue, !displayValue && styles.triggerPlaceholder]}
+              numberOfLines={2}>
+              {displayValue || placeholder}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color={IsiPlazaColors.textSecondary} />
+          </View>
+        </>
+      ) : (
+        <View style={styles.triggerRow}>
+          <Text
+            style={[styles.triggerValue, !displayValue && styles.triggerPlaceholder]}
+            numberOfLines={2}>
+            {displayValue || placeholder}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={IsiPlazaColors.textSecondary} />
+        </View>
+      )}
+    </Pressable>
+  );
+
   return (
     <>
-      <Pressable
-        style={[
-          isPill ? styles.triggerPill : styles.trigger,
-          !isPill && compact && styles.triggerCompact,
-          disabled && styles.triggerDisabled,
-        ]}
-        onPress={open}
-        disabled={disabled}>
-        {isPill ? (
-          <Text style={styles.triggerPillText} numberOfLines={1}>
-            {pillText}
-          </Text>
-        ) : (
-          <>
-            <Text style={styles.triggerLabel}>{label}</Text>
-            <View style={styles.triggerRow}>
-              <Text
-                style={[styles.triggerValue, !displayValue && styles.triggerPlaceholder]}
-                numberOfLines={2}>
-                {displayValue || placeholder}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={IsiPlazaColors.textSecondary} />
-            </View>
-          </>
-        )}
-      </Pressable>
+      {isPill ? (
+        trigger
+      ) : compact ? (
+        trigger
+      ) : (
+        <View style={styles.wrapper}>
+          {label ? <Text style={styles.label}>{label}</Text> : null}
+          {trigger}
+        </View>
+      )}
 
       {multiple && values.length > 0 ? (
         <View style={styles.chips}>
@@ -229,6 +251,14 @@ export function SearchableSelect({
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    gap: IsiPlazaSpacing.sm,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: IsiPlazaColors.text,
+  },
   trigger: {
     borderWidth: 1,
     borderColor: IsiPlazaColors.border,
@@ -261,10 +291,10 @@ const styles = StyleSheet.create({
   triggerDisabled: {
     opacity: 0.5,
   },
-  triggerLabel: {
-    fontSize: 14,
+  triggerInlineLabel: {
+    fontSize: 12,
     fontWeight: '500',
-    color: IsiPlazaColors.text,
+    color: IsiPlazaColors.textSecondary,
   },
   triggerRow: {
     flexDirection: 'row',

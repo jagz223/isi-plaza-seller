@@ -1,9 +1,7 @@
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,8 +12,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConsumerBannerCarousel } from '@/components/buyer/ConsumerBannerCarousel';
+import { SellerGridCard } from '@/components/buyer/SellerGridCard';
 import { SearchableSelect, type SelectOption } from '@/components/isi-plaza/SearchableSelect';
-import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
+import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { getStatesForCountry } from '@/constants/location-data';
 import {
   fetchConsumerBanners,
@@ -24,12 +23,6 @@ import {
   fetchConsumerSellers,
 } from '@/services/api/consumer';
 import type { ConsumerBanner, ConsumerSeller } from '@/types/consumer-api';
-import {
-  SELLER_CARD_AVATAR_HEIGHT,
-  SELLER_CARD_DESC_FONT_SIZE,
-  SELLER_CARD_DESC_LINE_HEIGHT,
-  SELLER_CARD_DESC_MAX_LINES,
-} from '@/constants/buyer-seller-display';
 import { buildSellerSections } from '@/utils/group-consumer-sellers';
 
 const GRID_COLUMNS = 2;
@@ -288,38 +281,12 @@ export default function MayoristasIndexScreen() {
               ) : (
                 <View style={styles.grid}>
                   {section.sellers.map((seller) => (
-                    <Pressable
+                    <SellerGridCard
                       key={`${section.title}-${seller.id}`}
-                      style={[styles.card, { width: cardWidth, maxWidth: cardWidth }]}
-                      onPress={() => router.push(`/(buyer)/mayoristas/${seller.id}`)}>
-                      {seller.avatar_url ? (
-                        <Image
-                          source={{ uri: seller.avatar_url }}
-                          style={[styles.cardImage, { width: cardWidth, height: SELLER_CARD_AVATAR_HEIGHT }]}
-                          contentFit="cover"
-                        />
-                      ) : (
-                        <View
-                          style={[
-                            styles.cardImage,
-                            styles.cardImagePlaceholder,
-                            { width: cardWidth, height: SELLER_CARD_AVATAR_HEIGHT },
-                          ]}
-                        />
-                      )}
-                      <Text
-                        style={[styles.cardName, { maxWidth: cardWidth }]}
-                        numberOfLines={2}
-                        ellipsizeMode="tail">
-                        {seller.name}
-                      </Text>
-                      <Text
-                        style={[styles.cardDescription, { maxWidth: cardWidth }]}
-                        numberOfLines={SELLER_CARD_DESC_MAX_LINES}
-                        ellipsizeMode="tail">
-                        {seller.description?.trim() || 'Sin descripción'}
-                      </Text>
-                    </Pressable>
+                      seller={seller}
+                      width={cardWidth}
+                      onPress={() => router.push(`/(buyer)/mayoristas/${seller.id}`)}
+                    />
                   ))}
                 </View>
               )}
@@ -422,51 +389,6 @@ const styles = StyleSheet.create({
     columnGap: GRID_GAP,
     rowGap: GRID_GAP,
     justifyContent: 'flex-start',
-  },
-  card: {
-    flexGrow: 0,
-    flexShrink: 0,
-    borderWidth: 2,
-    borderColor: IsiPlazaColors.primary,
-    borderRadius: IsiPlazaRadius.sm,
-    overflow: 'hidden',
-    backgroundColor: IsiPlazaColors.white,
-  },
-  cardImage: {
-    alignSelf: 'center',
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-  },
-  cardImagePlaceholder: {
-    backgroundColor: '#D9D9D9',
-  },
-  cardName: {
-    width: '100%',
-    fontSize: 11,
-    fontWeight: '800',
-    color: IsiPlazaColors.text,
-    paddingHorizontal: 6,
-    paddingTop: 6,
-    overflow: 'hidden',
-  },
-  cardDescription: {
-    width: '100%',
-    fontSize: SELLER_CARD_DESC_FONT_SIZE,
-    color: IsiPlazaColors.text,
-    paddingHorizontal: 6,
-    paddingBottom: 8,
-    paddingTop: 2,
-    lineHeight: SELLER_CARD_DESC_LINE_HEIGHT,
-    minHeight: SELLER_CARD_DESC_LINE_HEIGHT * SELLER_CARD_DESC_MAX_LINES,
-    maxHeight: SELLER_CARD_DESC_LINE_HEIGHT * SELLER_CARD_DESC_MAX_LINES,
-    overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        textOverflow: 'ellipsis',
-        display: '-webkit-box',
-        WebkitLineClamp: SELLER_CARD_DESC_MAX_LINES,
-        WebkitBoxOrient: 'vertical',
-      },
-    }),
   },
   emptyCategoryBox: {
     flex: 1,

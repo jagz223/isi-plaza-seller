@@ -827,7 +827,7 @@ export default function PerfilScreen() {
       <IsiSectionTitle>Catálogo del negocio</IsiSectionTitle>
       <Text style={styles.docHint}>
         Solo puedes elegir una opción: PDF, Excel o carruseles con imágenes. Para cambiar, elimina lo que subiste
-        (máx. 10 MB por archivo).
+        (máx. 300 MB por archivo).
       </Text>
       <View style={styles.docRow}>
         <Pressable

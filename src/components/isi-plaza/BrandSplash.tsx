@@ -23,8 +23,8 @@ export function BrandSplash() {
   return (
     <View style={styles.overlay}>
       <Image
-        source={require('@/assets/images/splash-brand.jpg')}
-        style={styles.image}
+        source={require('@/assets/images/waiting.png')}
+        style={styles.fullScreen}
         contentFit="cover"
       />
     </View>
@@ -37,7 +37,8 @@ const styles = StyleSheet.create({
     backgroundColor: IsiPlazaColors.primary,
     zIndex: 999,
   },
-  image: {
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
   },
