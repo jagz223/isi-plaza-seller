@@ -4,11 +4,13 @@ import type {
   BusinessCategoriesResponse,
   CatalogImage,
   CatalogImagesResponse,
+  DoctorServiceItem,
   MeResponse,
   MetricsResponse,
   ProfileResponse,
   SettingsResponse,
   SubscriptionResponse,
+  TreatmentSection,
 } from '@/types/seller-api';
 
 import {
@@ -46,6 +48,12 @@ export type ProfilePatchPayload = {
   facebook?: string;
   website?: string;
   carousel_metadata?: { title: string; description: string }[];
+  professional_license?: string;
+  phone?: string;
+  address?: string;
+  municipality?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type PasswordPatchPayload = {
@@ -118,6 +126,26 @@ export async function fetchBusinessCategories() {
   return normalizeCategoriesList(res);
 }
 
+export async function fetchSellerTreatments(): Promise<TreatmentSection[]> {
+  const res = await apiRequest<{ data: TreatmentSection[] }>('/treatments', { auth: false });
+  return res.data ?? [];
+}
+
+export async function syncDoctorServices(
+  services: { treatment_id: number; price: number }[],
+): Promise<ProfileResponse['data']> {
+  const res = await apiRequest<ProfileResponse>('/doctor-services', {
+    method: 'PUT',
+    body: { services },
+  });
+  return res.data;
+}
+
+export async function fetchDoctorServices(): Promise<DoctorServiceItem[]> {
+  const res = await apiRequest<{ data: DoctorServiceItem[] }>('/doctor-services');
+  return res.data ?? [];
+}
+
 export async function fetchProfile() {
   const res = await apiRequest<ProfileResponse>('/profile');
   return res.data;
@@ -126,7 +154,7 @@ export async function fetchProfile() {
 /** Body en snake_case para PATCH /profile (users.name + seller_profiles). */
 export function buildProfilePatchBody(fields: {
   name: string;
-  business_category_id: number;
+  business_category_id?: number | null;
   description: string;
   country: string;
   state: string | string[];
@@ -134,14 +162,22 @@ export function buildProfilePatchBody(fields: {
   instagram: string;
   facebook: string;
   website: string;
+  professional_license?: string;
+  phone?: string;
+  address?: string;
+  municipality?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }): ProfilePatchPayload {
   const body: ProfilePatchPayload = {
     name: fields.name.trim(),
-    business_category_id: Number(fields.business_category_id),
     description: fields.description.trim(),
     country: fields.country.trim(),
     state: Array.isArray(fields.state) ? fields.state : fields.state.trim(),
   };
+  if (fields.business_category_id != null) {
+    body.business_category_id = Number(fields.business_category_id);
+  }
   const whatsapp = fields.whatsapp.trim();
   const instagram = fields.instagram.trim();
   const facebook = fields.facebook.trim();
@@ -150,6 +186,16 @@ export function buildProfilePatchBody(fields: {
   if (instagram) body.instagram = instagram;
   if (facebook) body.facebook = facebook;
   if (website) body.website = website;
+  const license = fields.professional_license?.trim();
+  const phone = fields.phone?.trim();
+  const address = fields.address?.trim();
+  const municipality = fields.municipality?.trim();
+  if (license) body.professional_license = license;
+  if (phone) body.phone = phone;
+  if (address) body.address = address;
+  if (municipality) body.municipality = municipality;
+  if (fields.latitude != null) body.latitude = fields.latitude;
+  if (fields.longitude != null) body.longitude = fields.longitude;
   return body;
 }
 

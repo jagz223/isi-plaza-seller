@@ -1,5 +1,22 @@
 import type { BusinessCategory } from '@/types/seller-api';
 
+export type Treatment = {
+  id: number;
+  name: string;
+  slug: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+export type TreatmentSection = {
+  id: number;
+  name: string;
+  slug: string;
+  sort_order: number;
+  is_active: boolean;
+  treatments: Treatment[];
+};
+
 export type ConsumerUser = {
   id: number;
   name: string;
@@ -19,12 +36,17 @@ export type ConsumerBanner = {
   image_url: string | null;
   sort_order: number;
   link_url: string | null;
+  treatment_id?: number | null;
+  treatment_name?: string | null;
 };
 
 export type ConsumerSeller = {
   id: number;
   name: string;
   description: string | null;
+  professional_license: string | null;
+  address: string | null;
+  municipality: string | null;
   country: string | null;
   state: string | string[] | null;
   avatar_url: string | null;
@@ -32,6 +54,7 @@ export type ConsumerSeller = {
   has_active_promotion: boolean;
   business_category: BusinessCategory | null;
   is_favorited: boolean;
+  distance_km?: number | null;
 };
 
 export type ConsumerSellersResponse = {
@@ -42,6 +65,13 @@ export type ConsumerSellersResponse = {
     per_page: number;
     total: number;
   };
+};
+
+export type ConsumerComplianceSettings = {
+  external_contact_disclaimer: string;
+  app_store_url: string;
+  play_store_url: string;
+  privacy_notice: string;
 };
 
 export type FilterCountryOption = {
@@ -66,6 +96,10 @@ export type ConsumerSellerDetail = {
   id: number;
   name: string;
   description: string | null;
+  professional_license: string | null;
+  address: string | null;
+  municipality: string | null;
+  phone: string | null;
   country: string | null;
   state: string | string[] | null;
   avatar_url: string | null;
@@ -82,6 +116,13 @@ export type ConsumerSellerDetail = {
   has_active_promotion: boolean;
   business_category: BusinessCategory | null;
   is_favorited: boolean;
+  services?: {
+    id: number;
+    treatment_id: number;
+    price: number;
+    name: string | null;
+    section_name: string | null;
+  }[];
 };
 
 export type ConsumerSellerDetailResponse = {

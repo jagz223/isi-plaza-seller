@@ -9,8 +9,11 @@ import type {
   ConsumerSellerDetailResponse,
   ConsumerSellersResponse,
   ConsumerUser,
+  ConsumerComplianceSettings,
   FilterCountryOption,
+  TreatmentSection,
 } from '@/types/consumer-api';
+import type { GeoRegionKey } from '@/constants/geo-mexico';
 import type { BusinessCategory, SellerInteractionEventType } from '@/types/seller-api';
 
 type BusinessCategoriesResponse = {
@@ -125,6 +128,15 @@ export async function removeConsumerFavorite(sellerId: number): Promise<boolean>
   return json.is_favorited;
 }
 
+type TreatmentSectionsResponse = {
+  data: TreatmentSection[];
+};
+
+export async function fetchConsumerTreatments(): Promise<TreatmentSection[]> {
+  const json = await consumerFetch<TreatmentSectionsResponse>('/treatments');
+  return json.data ?? [];
+}
+
 export async function fetchConsumerBusinessCategories(): Promise<BusinessCategory[]> {
   const json = await consumerFetch<BusinessCategoriesResponse | BusinessCategory[]>(
     '/business-categories',
@@ -148,6 +160,11 @@ export async function fetchConsumerBanners(businessCategoryId?: number): Promise
 
 export async function recordConsumerBannerClick(bannerId: number): Promise<void> {
   await consumerFetch(`/banners/${bannerId}/click`, { method: 'POST' });
+}
+
+export async function fetchConsumerSettings(): Promise<ConsumerComplianceSettings> {
+  const json = await consumerFetch<{ data: ConsumerComplianceSettings }>('/settings');
+  return json.data;
 }
 
 export async function fetchConsumerFilterCountries(): Promise<FilterCountryOption[]> {
@@ -184,10 +201,33 @@ export async function fetchConsumerFilterStates(country: string): Promise<string
   return [...new Set(expanded)].sort((a, b) => a.localeCompare(b, 'es'));
 }
 
+export async function fetchConsumerFilterRegions(): Promise<
+  { key: GeoRegionKey; label: string }[]
+> {
+  const json = await consumerFetch<{ data: { key: GeoRegionKey; label: string }[] }>(
+    '/filters/regions',
+  );
+  return json.data ?? [];
+}
+
+export async function fetchConsumerFilterMunicipalities(
+  region: GeoRegionKey,
+): Promise<string[]> {
+  const params = new URLSearchParams({ region });
+  const json = await consumerFetch<{ data: string[] }>(`/filters/municipalities?${params}`);
+  return json.data ?? [];
+}
+
 export type FetchConsumerSellersParams = {
   businessCategoryId?: number;
+  treatmentId?: number;
   country?: string;
   state?: string;
+  region?: GeoRegionKey;
+  municipality?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
   perPage?: number;
   page?: number;
 };
@@ -206,11 +246,29 @@ export async function fetchConsumerSellers(
   if (params.businessCategoryId != null) {
     search.set('business_category_id', String(params.businessCategoryId));
   }
+  if (params.treatmentId != null) {
+    search.set('treatment_id', String(params.treatmentId));
+  }
   if (params.country) {
     search.set('country', params.country);
   }
   if (params.state) {
     search.set('state', params.state);
+  }
+  if (params.region) {
+    search.set('region', params.region);
+  }
+  if (params.municipality) {
+    search.set('municipality', params.municipality);
+  }
+  if (params.latitude != null) {
+    search.set('latitude', String(params.latitude));
+  }
+  if (params.longitude != null) {
+    search.set('longitude', String(params.longitude));
+  }
+  if (params.radiusKm != null) {
+    search.set('radius_km', String(params.radiusKm));
   }
   search.set('per_page', String(params.perPage ?? 50));
   if (params.page) {

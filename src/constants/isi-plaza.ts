@@ -1,17 +1,19 @@
+/** Paleta Odontica — directorio médico dental. */
 export const IsiPlazaColors = {
-  primary: '#FF0000',
-  primaryDark: '#E00000',
-  primaryLight: '#FF4040',
-  primaryMuted: '#FF7676',
+  primary: '#121660',
+  primaryDark: '#0A0D3D',
+  primaryLight: '#2E3A8C',
+  primaryMuted: '#5C6BC0',
+  accent: '#E53935',
   white: '#FFFFFF',
   black: '#000000',
   text: '#1A1A1A',
   textSecondary: '#60646C',
   border: '#E5E5E5',
-  background: '#FFFFFF',
-  backgroundMuted: '#F5F5F5',
+  background: '#F2F2F2',
+  backgroundMuted: '#E8EAF0',
   success: '#16A34A',
-  cardShadow: 'rgba(0, 0, 0, 0.08)',
+  cardShadow: 'rgba(18, 22, 96, 0.12)',
 } as const;
 
 export const IsiPlazaSpacing = {

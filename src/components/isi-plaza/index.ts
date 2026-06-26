@@ -1,4 +1,3 @@
-export { BrandSplash } from './BrandSplash';
 export { CategoryPicker } from './CategoryPicker';
 export { IsiButton } from './IsiButton';
 export { IsiHeader } from './IsiHeader';

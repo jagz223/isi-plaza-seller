@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { Brand } from '@/constants/brand';
 import { VERIFIED_BADGE_RED } from '@/constants/buyer-seller-display';
 import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 
@@ -15,7 +16,7 @@ export function SellerVerifiedBadge({ variant = 'hero' }: Props) {
   return (
     <View style={[styles.badge, isCard ? styles.badgeCard : styles.badgeHero]}>
       <Text style={[styles.text, isCard && styles.textCard]} numberOfLines={1}>
-        Mayorista Verificado
+        {Brand.verifiedDoctor}
       </Text>
       <View style={[styles.icon, isCard && styles.iconCard]}>
         <Ionicons name="checkmark" size={isCard ? 12 : 16} color={IsiPlazaColors.white} />

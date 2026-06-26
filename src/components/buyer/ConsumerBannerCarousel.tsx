@@ -29,7 +29,7 @@ type BannerSlideProps = {
 };
 
 function BannerSlide({ banner, width, onPress }: BannerSlideProps) {
-  const hasLink = Boolean(banner.link_url?.trim());
+  const hasLink = Boolean(banner.link_url?.trim() || banner.treatment_id);
 
   return (
     <Pressable
@@ -84,12 +84,16 @@ export function ConsumerBannerCarousel({
         return;
       }
 
-      if (!banner.link_url?.trim()) {
+      if (!banner.link_url?.trim() && !banner.treatment_id) {
         return;
       }
 
-      const targetUrl = banner.link_url.trim();
       void recordConsumerBannerClick(banner.id).catch(() => {});
+
+      const targetUrl = banner.link_url?.trim();
+      if (!targetUrl) {
+        return;
+      }
 
       try {
         const canOpen = await Linking.canOpenURL(targetUrl);

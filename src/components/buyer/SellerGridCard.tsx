@@ -9,11 +9,15 @@ import {
   SELLER_CARD_DESC_MAX_LINES,
 } from '@/constants/buyer-seller-display';
 import { IsiPlazaColors, IsiPlazaRadius } from '@/constants/isi-plaza';
+import { formatDistanceKm } from '@/utils/location';
 
 export type SellerGridCardData = {
   id: number;
   name: string;
   description?: string | null;
+  professional_license?: string | null;
+  municipality?: string | null;
+  distance_km?: number | null;
   avatar_url?: string | null;
   is_verified?: boolean;
 };
@@ -25,6 +29,11 @@ type Props = {
 };
 
 export function SellerGridCard({ seller, width, onPress }: Props) {
+  const subtitle =
+    seller.distance_km != null
+      ? formatDistanceKm(seller.distance_km)
+      : seller.municipality?.trim() || seller.description?.trim() || 'Sin descripción';
+
   return (
     <Pressable
       style={[styles.card, { width, maxWidth: width }]}
@@ -50,11 +59,16 @@ export function SellerGridCard({ seller, width, onPress }: Props) {
       <Text style={[styles.cardName, { maxWidth: width }]} numberOfLines={2} ellipsizeMode="tail">
         {seller.name}
       </Text>
+      {seller.professional_license ? (
+        <Text style={[styles.cardLicense, { maxWidth: width }]} numberOfLines={1}>
+          Céd. {seller.professional_license}
+        </Text>
+      ) : null}
       <Text
         style={[styles.cardDescription, { maxWidth: width }]}
         numberOfLines={SELLER_CARD_DESC_MAX_LINES}
         ellipsizeMode="tail">
-        {seller.description?.trim() || 'Sin descripción'}
+        {subtitle}
       </Text>
     </Pressable>
   );
@@ -89,6 +103,15 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     overflow: 'hidden',
   },
+  cardLicense: {
+    width: '100%',
+    fontSize: 10,
+    fontWeight: '600',
+    color: IsiPlazaColors.primary,
+    paddingHorizontal: 6,
+    paddingTop: 2,
+    overflow: 'hidden',
+  },
   cardDescription: {
     width: '100%',
     fontSize: SELLER_CARD_DESC_FONT_SIZE,
@@ -100,13 +123,5 @@ const styles = StyleSheet.create({
     minHeight: SELLER_CARD_DESC_LINE_HEIGHT * SELLER_CARD_DESC_MAX_LINES,
     maxHeight: SELLER_CARD_DESC_LINE_HEIGHT * SELLER_CARD_DESC_MAX_LINES,
     overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        textOverflow: 'ellipsis',
-        display: '-webkit-box',
-        WebkitLineClamp: SELLER_CARD_DESC_MAX_LINES,
-        WebkitBoxOrient: 'vertical',
-      },
-    }),
   },
 });

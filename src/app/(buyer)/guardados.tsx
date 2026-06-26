@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -52,7 +52,7 @@ export default function GuardadosScreen() {
   );
 
   return (
-    <IsiScreen scrollable={false}>
+    <IsiScreen scrollEnabled={false}>
       <IsiHeader title="Mis Guardados" showBack={false} />
       <View style={[styles.container, { paddingBottom: insets.bottom + 72 }]}>
         {loading ? (
@@ -60,22 +60,22 @@ export default function GuardadosScreen() {
         ) : sellers.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              Aún no has guardado ningún mayorista.{'\n'}
-              Pulsa el corazón en el perfil de un mayorista para añadirlo aquí.
+              Aún no has guardado ningún médico.{'\n'}
+              Pulsa el corazón en el perfil de un médico para añadirlo aquí.
             </Text>
           </View>
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.sectionTitle}>Tus mayoristas favoritos</Text>
+            <Text style={styles.sectionTitle}>Tus médicos favoritos</Text>
             <View style={styles.grid}>
               {sellers.map((seller) => (
                 <SellerGridCard
                   key={seller.id}
                   seller={seller}
                   width={cardWidth}
-                  onPress={() => router.push(`/(buyer)/mayoristas/${seller.id}`)}
+                  onPress={() => router.push(`/(buyer)/medicos/${seller.id}` as Href)}
                 />
               ))}
             </View>

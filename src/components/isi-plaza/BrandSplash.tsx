@@ -1,32 +1,34 @@
-import { Image } from 'expo-image';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
+import { useEffect } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
 
-import { IsiPlazaColors } from '@/constants/isi-plaza';
+import { OdonticaLogo } from '@/components/odontica';
+import { SPLASH_BACKGROUND } from '@/constants/splash';
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
+const screen = Dimensions.get('screen');
 
-export function BrandSplash() {
-  const [visible, setVisible] = useState(true);
+type BrandSplashProps = {
+  visible: boolean;
+};
 
+export function BrandSplash({ visible }: BrandSplashProps) {
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      setVisible(false);
-      await SplashScreen.hideAsync();
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!visible) {
+      return;
+    }
 
-  if (!visible) return null;
+    void SystemUI.setBackgroundColorAsync(SPLASH_BACKGROUND);
+  }, [visible]);
+
+  if (!visible) {
+    return null;
+  }
 
   return (
-    <View style={styles.overlay}>
-      <Image
-        source={require('@/assets/images/waiting.png')}
-        style={styles.fullScreen}
-        contentFit="cover"
-      />
+    <View style={styles.overlay} pointerEvents="none">
+      <StatusBar style="light" backgroundColor={SPLASH_BACKGROUND} translucent />
+      <OdonticaLogo variant="light" />
     </View>
   );
 }
@@ -34,12 +36,12 @@ export function BrandSplash() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: IsiPlazaColors.primary,
+    width: screen.width,
+    height: screen.height,
+    backgroundColor: SPLASH_BACKGROUND,
     zIndex: 999,
-  },
-  fullScreen: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
+    elevation: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,23 +1,32 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IsiButton, IsiInput, SearchableSelect } from '@/components/isi-plaza';
-import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
+import { OdonticaDecor } from '@/components/odontica';
+import { Brand } from '@/constants/brand';
+import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import {
   DEFAULT_WHATSAPP_DIAL_CODE,
   formatWhatsapp,
-  getDialCodeOptions,
 } from '@/constants/location-data';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useConsumerAuth } from '@/contexts/ConsumerAuthContext';
 
 const MAX_WHATSAPP_DIGITS = 12;
 
-function validateAccessForm(name: string, dialCode: string, number: string): string | null {
+function validateAccessForm(name: string, number: string): string | null {
   if (!name.trim()) {
     return 'Ingresa tu nombre.';
   }
@@ -28,9 +37,6 @@ function validateAccessForm(name: string, dialCode: string, number: string): str
   if (digits.length > MAX_WHATSAPP_DIGITS) {
     return `El número de WhatsApp no puede tener más de ${MAX_WHATSAPP_DIGITS} dígitos.`;
   }
-  if (!dialCode.trim()) {
-    return 'Selecciona el prefijo de tu país para WhatsApp.';
-  }
   return null;
 }
 
@@ -40,7 +46,6 @@ export default function CompradorAccesoScreen() {
   const { isAuthenticated, isLoading, registerGuest } = useConsumerAuth();
 
   const [name, setName] = useState('');
-  const [whatsappDialCode, setWhatsappDialCode] = useState(DEFAULT_WHATSAPP_DIAL_CODE);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -51,13 +56,13 @@ export default function CompradorAccesoScreen() {
   }, [isAuthenticated, isLoading, router, setAppMode]);
 
   const handleContinue = async () => {
-    const validationError = validateAccessForm(name, whatsappDialCode, whatsappNumber);
+    const validationError = validateAccessForm(name, whatsappNumber);
     if (validationError) {
       Alert.alert('Validación', validationError);
       return;
     }
 
-    const whatsapp = formatWhatsapp(whatsappDialCode, whatsappNumber);
+    const whatsapp = formatWhatsapp(DEFAULT_WHATSAPP_DIAL_CODE, whatsappNumber);
     setLoading(true);
     try {
       await registerGuest(name.trim(), whatsapp);
@@ -73,7 +78,9 @@ export default function CompradorAccesoScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+      <OdonticaDecor />
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -81,49 +88,31 @@ export default function CompradorAccesoScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View style={styles.headerCurve} />
-            <View style={styles.logoWrap}>
-              <Image
-                source={require('@/assets/images/splash-brand.jpg')}
-                style={styles.logo}
-                contentFit="contain"
-              />
-            </View>
-          </View>
+          <View style={styles.center}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>{Brand.patientAccessTitle}</Text>
 
-          <View style={styles.body}>
-            <Text style={styles.title}>Busco Mayoristas</Text>
-            <Text style={styles.subtitle}>
-              Déjanos tu nombre y WhatsApp para acceder al directorio.
-            </Text>
+              <View style={styles.field}>
+                <Text style={styles.label}>Nombre</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Tu nombre"
+                  placeholderTextColor={IsiPlazaColors.textSecondary}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  editable={!loading}
+                />
+              </View>
 
-            <View style={styles.form}>
-              <IsiInput
-                label="Nombre"
-                placeholder="Tu nombre"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-                editable={!loading}
-              />
-
-              <Text style={styles.fieldLabel}>WhatsApp</Text>
-              <View style={styles.whatsappRow}>
-                <View style={styles.dialCodeWrap}>
-                  <SearchableSelect
-                    label="Código"
-                    placeholder="Prefijo"
-                    options={getDialCodeOptions()}
-                    value={whatsappDialCode}
-                    onChange={setWhatsappDialCode}
-                    disabled={loading}
-                    compact
-                  />
-                </View>
-                <View style={styles.numberWrap}>
-                  <IsiInput
+              <View style={styles.field}>
+                <Text style={styles.label}>Whatsapp</Text>
+                <View style={styles.whatsappRow}>
+                  <Text style={styles.dialCode}>{DEFAULT_WHATSAPP_DIAL_CODE}</Text>
+                  <TextInput
+                    style={[styles.input, styles.whatsappInput]}
                     placeholder="Número"
+                    placeholderTextColor={IsiPlazaColors.textSecondary}
                     value={whatsappNumber}
                     onChangeText={(text) => setWhatsappNumber(text.replace(/\D/g, ''))}
                     keyboardType="phone-pad"
@@ -132,20 +121,28 @@ export default function CompradorAccesoScreen() {
                   />
                 </View>
               </View>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  pressed && styles.submitPressed,
+                  loading && styles.submitDisabled,
+                ]}
+                onPress={() => void handleContinue()}
+                disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Acceder">
+                <Text style={styles.submitLabel}>{loading ? 'Entrando…' : 'Acceder'}</Text>
+              </Pressable>
             </View>
 
-            <IsiButton
-              label={loading ? 'Entrando…' : 'Continuar'}
-              onPress={() => void handleContinue()}
-              disabled={loading}
-            />
-
-            <IsiButton
-              label="Volver"
-              variant="ghost"
+            <Pressable
               onPress={() => router.replace('/(acceso)/acceso-modo')}
               disabled={loading}
-            />
+              style={styles.backLink}
+              accessibilityRole="button">
+              <Text style={styles.backLabel}>Volver</Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -153,81 +150,103 @@ export default function CompradorAccesoScreen() {
   );
 }
 
-const HEADER_HEIGHT = 220;
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: IsiPlazaColors.white,
+    backgroundColor: IsiPlazaColors.background,
   },
   flex: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  header: {
-    height: HEADER_HEIGHT,
-    overflow: 'hidden',
-    backgroundColor: IsiPlazaColors.white,
-  },
-  headerCurve: {
-    position: 'absolute',
-    top: 0,
-    left: -48,
-    right: -48,
-    height: HEADER_HEIGHT - 24,
-    backgroundColor: IsiPlazaColors.primary,
-    borderBottomLeftRadius: 220,
-    borderBottomRightRadius: 220,
-  },
-  logoWrap: {
-    flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: IsiPlazaSpacing.lg,
-    paddingBottom: IsiPlazaSpacing.xl,
-  },
-  logo: {
-    width: 180,
-    height: 100,
-  },
-  body: {
-    flex: 1,
     paddingHorizontal: IsiPlazaSpacing.lg,
-    paddingBottom: IsiPlazaSpacing.lg,
+    paddingVertical: IsiPlazaSpacing.xl,
+  },
+  center: {
+    gap: IsiPlazaSpacing.lg,
+  },
+  card: {
+    backgroundColor: IsiPlazaColors.primary,
+    borderRadius: IsiPlazaRadius.lg + 4,
+    padding: IsiPlazaSpacing.lg,
     gap: IsiPlazaSpacing.md,
+    shadowColor: IsiPlazaColors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: IsiPlazaColors.text,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: IsiPlazaColors.white,
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 15,
     lineHeight: 22,
-    color: IsiPlazaColors.textSecondary,
-    textAlign: 'center',
     marginBottom: IsiPlazaSpacing.sm,
   },
-  form: {
-    gap: IsiPlazaSpacing.md,
+  field: {
+    gap: 6,
   },
-  fieldLabel: {
+  label: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: IsiPlazaColors.white,
+  },
+  input: {
+    backgroundColor: IsiPlazaColors.white,
+    borderRadius: IsiPlazaRadius.md,
+    paddingHorizontal: IsiPlazaSpacing.md,
+    paddingVertical: 12,
+    fontSize: 16,
     color: IsiPlazaColors.text,
   },
   whatsappRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: IsiPlazaSpacing.sm,
-    alignItems: 'flex-start',
   },
-  dialCodeWrap: {
-    width: 132,
+  dialCode: {
+    backgroundColor: IsiPlazaColors.white,
+    borderRadius: IsiPlazaRadius.md,
+    paddingHorizontal: IsiPlazaSpacing.md,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: IsiPlazaColors.text,
+    minWidth: 56,
+    textAlign: 'center',
   },
-  numberWrap: {
+  whatsappInput: {
     flex: 1,
+  },
+  submitButton: {
+    marginTop: IsiPlazaSpacing.sm,
+    backgroundColor: IsiPlazaColors.white,
+    borderRadius: IsiPlazaRadius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  submitPressed: {
+    opacity: 0.9,
+  },
+  submitDisabled: {
+    opacity: 0.7,
+  },
+  submitLabel: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
+  },
+  backLink: {
+    alignSelf: 'center',
+    padding: IsiPlazaSpacing.sm,
+  },
+  backLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: IsiPlazaColors.primary,
+    textDecorationLine: 'underline',
   },
 });

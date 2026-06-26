@@ -1,13 +1,14 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { OdonticaDecor, OdonticaLogo } from '@/components/odontica';
 import { TermsAndConditionsModal } from '@/components/isi-plaza/TermsAndConditionsModal';
-import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
+import { Brand } from '@/constants/brand';
+import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { useAppMode } from '@/contexts/AppModeContext';
 
 export default function AccesoModoScreen() {
@@ -15,61 +16,51 @@ export default function AccesoModoScreen() {
   const { setAppMode } = useAppMode();
   const [termsVisible, setTermsVisible] = useState(false);
 
-  const handleComprador = () => {
+  const handlePaciente = () => {
     router.replace('/(acceso)/comprador-acceso');
   };
 
-  const handleMayorista = async () => {
+  const handleMedico = async () => {
     await setAppMode('mayorista');
     router.replace('/(auth)/registro');
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+      <OdonticaDecor />
 
-      <View style={styles.header}>
-        <View style={styles.headerCurve} />
-        <View style={styles.logoWrap}>
-          <Image
-            source={require('@/assets/images/splash-brand.jpg')}
-            style={styles.logo}
-            contentFit="contain"
-          />
+      <View style={styles.content}>
+        <View style={styles.brandBlock}>
+          <OdonticaLogo />
         </View>
-      </View>
 
-      <View style={styles.body}>
         <View style={styles.buttons}>
           <Pressable
             style={({ pressed }) => [styles.modeButtonOutline, pressed && styles.pressed]}
-            onPress={handleComprador}
+            onPress={handlePaciente}
             accessibilityRole="button"
-            accessibilityLabel="Busco Mayoristas">
-            <View style={styles.iconBoxOutline}>
-              <Ionicons name="search" size={36} color={IsiPlazaColors.primary} />
+            accessibilityLabel={Brand.patientRole}>
+            <View style={styles.iconBoxPrimary}>
+              <Ionicons name="search" size={28} color={IsiPlazaColors.white} />
             </View>
             <View style={styles.buttonTextCol}>
-              <Text style={styles.titleOutline}>Busco Mayoristas</Text>
-              <View style={styles.pillOutline}>
-                <Text style={styles.pillTextOutline}>cerca de tu ubicación</Text>
-              </View>
+              <Text style={styles.titleDark}>{Brand.patientRole}</Text>
+              <Text style={styles.subtitleDark}>{Brand.patientSubtitle}</Text>
             </View>
           </Pressable>
 
           <Pressable
             style={({ pressed }) => [styles.modeButtonFilled, pressed && styles.pressedFilled]}
-            onPress={handleMayorista}
+            onPress={() => void handleMedico()}
             accessibilityRole="button"
-            accessibilityLabel="Soy Mayorista">
-            <View style={styles.iconBoxFilled}>
-              <Ionicons name="home-outline" size={36} color={IsiPlazaColors.white} />
+            accessibilityLabel={Brand.doctorRole}>
+            <View style={styles.iconBoxLight}>
+              <MaterialCommunityIcons name="doctor" size={28} color={IsiPlazaColors.white} />
             </View>
             <View style={styles.buttonTextCol}>
-              <Text style={styles.titleFilled}>Soy Mayorista</Text>
-              <View style={styles.pillFilled}>
-                <Text style={styles.pillTextFilled}>directorio B2B premium</Text>
-              </View>
+              <Text style={styles.titleLight}>{Brand.doctorRole}</Text>
+              <Text style={styles.subtitleLight}>{Brand.doctorSubtitle}</Text>
             </View>
           </Pressable>
         </View>
@@ -87,61 +78,35 @@ export default function AccesoModoScreen() {
   );
 }
 
-const HEADER_HEIGHT = 280;
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: IsiPlazaColors.white,
+    backgroundColor: IsiPlazaColors.background,
   },
-  header: {
-    height: HEADER_HEIGHT,
-    overflow: 'hidden',
-    backgroundColor: IsiPlazaColors.white,
-  },
-  headerCurve: {
-    position: 'absolute',
-    top: 0,
-    left: -48,
-    right: -48,
-    height: HEADER_HEIGHT - 24,
-    backgroundColor: IsiPlazaColors.primary,
-    borderBottomLeftRadius: 220,
-    borderBottomRightRadius: 220,
-  },
-  logoWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: IsiPlazaSpacing.lg,
-    paddingBottom: IsiPlazaSpacing.xl,
-  },
-  logo: {
-    width: 200,
-    height: 120,
-  },
-  body: {
+  content: {
     flex: 1,
     paddingHorizontal: IsiPlazaSpacing.lg,
     justifyContent: 'space-between',
     paddingBottom: IsiPlazaSpacing.md,
   },
-  buttons: {
+  brandBlock: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: IsiPlazaSpacing.xl,
+  },
+  buttons: {
     gap: IsiPlazaSpacing.lg,
-    paddingVertical: IsiPlazaSpacing.xl,
+    paddingBottom: IsiPlazaSpacing.xl,
   },
   modeButtonOutline: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: IsiPlazaColors.white,
-    borderWidth: 2,
-    borderColor: IsiPlazaColors.primary,
     borderRadius: 20,
     paddingVertical: IsiPlazaSpacing.lg,
     paddingHorizontal: IsiPlazaSpacing.lg,
-    minHeight: 110,
+    minHeight: 96,
     gap: IsiPlazaSpacing.md,
     shadowColor: IsiPlazaColors.black,
     shadowOffset: { width: 0, height: 4 },
@@ -156,7 +121,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: IsiPlazaSpacing.lg,
     paddingHorizontal: IsiPlazaSpacing.lg,
-    minHeight: 110,
+    minHeight: 96,
     gap: IsiPlazaSpacing.md,
     shadowColor: IsiPlazaColors.primary,
     shadowOffset: { width: 0, height: 6 },
@@ -172,58 +137,47 @@ const styles = StyleSheet.create({
     opacity: 0.95,
     transform: [{ scale: 0.99 }],
   },
-  iconBoxOutline: {
+  iconBoxPrimary: {
     width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: IsiPlazaColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBoxFilled: {
+  iconBoxLight: {
     width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: IsiPlazaColors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonTextCol: {
     flex: 1,
-    alignItems: 'center',
-    gap: IsiPlazaSpacing.sm,
+    gap: 4,
   },
-  titleOutline: {
-    fontSize: 22,
+  titleDark: {
+    fontSize: 18,
     fontWeight: '800',
-    color: IsiPlazaColors.primary,
-    textAlign: 'center',
+    color: IsiPlazaColors.text,
+    letterSpacing: 0.5,
   },
-  titleFilled: {
-    fontSize: 22,
+  titleLight: {
+    fontSize: 18,
     fontWeight: '800',
     color: IsiPlazaColors.white,
-    textAlign: 'center',
+    letterSpacing: 0.5,
   },
-  pillOutline: {
-    borderWidth: 1.5,
-    borderColor: IsiPlazaColors.primary,
-    borderRadius: IsiPlazaRadius.pill,
-    paddingHorizontal: IsiPlazaSpacing.md,
-    paddingVertical: 6,
-  },
-  pillTextOutline: {
+  subtitleDark: {
     fontSize: 13,
-    fontWeight: '600',
-    color: IsiPlazaColors.primary,
-    textAlign: 'center',
+    fontWeight: '500',
+    color: IsiPlazaColors.textSecondary,
   },
-  pillFilled: {
-    borderWidth: 1.5,
-    borderColor: IsiPlazaColors.white,
-    borderRadius: IsiPlazaRadius.pill,
-    paddingHorizontal: IsiPlazaSpacing.md,
-    paddingVertical: 6,
-  },
-  pillTextFilled: {
+  subtitleLight: {
     fontSize: 13,
-    fontWeight: '600',
-    color: IsiPlazaColors.white,
-    textAlign: 'center',
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.85)',
   },
   terms: {
     fontSize: 13,

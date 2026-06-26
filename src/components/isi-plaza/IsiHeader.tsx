@@ -1,15 +1,15 @@
-import { Image } from 'expo-image';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, useRouter } from 'expo-router';
 
+import { OdonticaLogo } from '@/components/odontica';
 import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { Routes } from '@/constants/routes';
 
 type IsiHeaderProps = {
   compact?: boolean;
-  /** access = logo blanco sobre rojo (pantalla de registro); admin = tarjeta blanca (estilo panel) */
+  /** access = logo sobre navy; admin = tarjeta blanca */
   variant?: 'access' | 'admin';
   title?: string;
   showBack?: boolean;
@@ -39,10 +39,14 @@ export function IsiHeader({
   return (
     <View style={[styles.wrapper, compact && styles.wrapperCompact, title && styles.wrapperWithTitle]}>
       <View style={[styles.curve, compact && styles.curveCompact]} />
-      
+
       {showBack && (
         <Pressable style={styles.backButton} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={24} color={variant === 'access' ? IsiPlazaColors.white : IsiPlazaColors.text} />
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={variant === 'access' ? IsiPlazaColors.white : IsiPlazaColors.text}
+          />
         </Pressable>
       )}
 
@@ -52,22 +56,14 @@ export function IsiHeader({
         </View>
       ) : (
         <View style={styles.logoContainer}>
-        {variant === 'access' ? (
-          <Image
-            source={require('@/assets/images/splash-brand.jpg')}
-            style={[styles.logoAccess, compact && styles.logoAccessCompact]}
-            contentFit="contain"
-          />
-        ) : (
-          <View style={[styles.logoCard, compact && styles.logoCardCompact]}>
-            <Image
-              source={require('@/assets/images/logo.jpeg')}
-              style={[styles.logo, compact && styles.logoCompact]}
-              contentFit="contain"
-            />
-          </View>
-        )}
-      </View>
+          {variant === 'access' ? (
+            <OdonticaLogo variant="light" compact={compact} />
+          ) : (
+            <View style={[styles.logoCard, compact && styles.logoCardCompact]}>
+              <OdonticaLogo compact={compact} showTagline={!compact} />
+            </View>
+          )}
+        </View>
       )}
     </View>
   );
@@ -136,21 +132,5 @@ const styles = StyleSheet.create({
   },
   logoCardCompact: {
     padding: IsiPlazaSpacing.sm,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-  },
-  logoCompact: {
-    width: 72,
-    height: 72,
-  },
-  logoAccess: {
-    width: 160,
-    height: 100,
-  },
-  logoAccessCompact: {
-    width: 130,
-    height: 80,
   },
 });

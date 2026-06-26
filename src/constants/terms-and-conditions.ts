@@ -27,7 +27,7 @@ export const TERMS_AND_CONDITIONS_BLOCKS: TermsBlock[] = [
     type: 'paragraph',
     parts: [
       {
-        text: '1.2 El uso de la plataforma está destinado exclusivamente para usuarios y vendedores mayoristas mayores de edad que residan en México.',
+        text: '1.2 El uso de la plataforma está destinado exclusivamente para pacientes y médicos mayores de edad que residan en México.',
       },
     ],
   },

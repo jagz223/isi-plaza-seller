@@ -39,21 +39,27 @@ export default function AppLayout() {
       <Tabs.Screen
         name="perfil"
         options={{
-          title: 'Dar de alta',
+          title: 'Perfil',
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="servicios"
+        options={{
+          title: 'Servicios',
+          tabBarIcon: ({ color, size }) => <Ionicons name="medical-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="metricas"
         options={{
-          title: 'Métricas',
-          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="ajustes"
         options={{
-          title: 'Ajustes',
+          title: 'Cuenta',
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
       />

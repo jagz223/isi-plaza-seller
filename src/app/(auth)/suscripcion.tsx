@@ -3,13 +3,14 @@ import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
-import { IsiButton, IsiHeader, IsiScreen, LoadingOverlay } from '@/components/isi-plaza';
+import { OdonticaDecor, OdonticaLogo } from '@/components/odontica';
+import { IsiButton, IsiScreen, LoadingOverlay } from '@/components/isi-plaza';
+import { Brand } from '@/constants/brand';
 import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchSubscription } from '@/services/api/seller';
 import type { SubscriptionResponse } from '@/types/seller-api';
-
 export default function SuscripcionScreen() {
   const { hasAccess, refreshSession, signOut } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
@@ -56,30 +57,33 @@ export default function SuscripcionScreen() {
 
   return (
     <View style={styles.root}>
-      <IsiHeader variant="access" compact />
+      <OdonticaDecor />
+      <View style={styles.header}>
+        <OdonticaLogo compact showTagline={false} />
+        <Text style={styles.tagline}>{Brand.tagline}</Text>
+      </View>
       <IsiScreen contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <Text style={styles.priceLabel}>
-            {subscription?.subscription_plan_label ?? 'Plan mayorista'}
+            {subscription?.subscription_plan_label ?? Brand.planDoctor}
           </Text>
           <Text style={styles.price}>
-            {subscription?.subscription_price_label ?? 'Suscripción mensual de 69 MXN'}
+            {subscription?.subscription_price_label ?? Brand.planDoctorPrice}
           </Text>
+          <Text style={styles.priceHint}>Pago mensual para publicar tu consultorio en Odontica</Text>
           {subscription?.message ? <Text style={styles.hint}>{subscription.message}</Text> : null}
           <IsiButton
-            label={subscription?.subscribe_button_label ?? 'Suscribirme'}
+            label={subscription?.subscribe_button_label ?? 'Pagar por WhatsApp'}
             onPress={openWhatsApp}
           />
         </View>
 
         <View style={styles.blockedCard}>
-          <Text style={styles.blockedTitle}>Acceso pendiente</Text>
+          <Text style={styles.blockedTitle}>{Brand.pendingAccessTitle}</Text>
           <Text style={styles.blockedText}>
-            Hasta que el administrador active tu cuenta, no podrás acceder a Dar de alta, Métricas ni
-            Ajustes. Estado actual: {subscription?.access_status ?? 'pending'}.
+            {Brand.pendingAccessBody} Estado: {subscription?.access_status ?? 'pending'}.
           </Text>
         </View>
-
         <IsiButton label="Actualizar estado" variant="outline" onPress={loadSubscription} />
         <IsiButton label="Cerrar sesión" variant="ghost" onPress={signOut} />
       </IsiScreen>
@@ -92,8 +96,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: IsiPlazaColors.background,
   },
-  content: {
-    paddingHorizontal: IsiPlazaSpacing.lg,
+  header: {
+    alignItems: 'center',
+    paddingTop: IsiPlazaSpacing.xl,
+    paddingBottom: IsiPlazaSpacing.md,
+    gap: IsiPlazaSpacing.sm,
+  },
+  tagline: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: IsiPlazaColors.primary,
+    textTransform: 'uppercase',
+  },
+  content: {    paddingHorizontal: IsiPlazaSpacing.lg,
     paddingTop: IsiPlazaSpacing.xl,
     gap: IsiPlazaSpacing.lg,
   },
@@ -114,13 +130,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   price: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: IsiPlazaColors.text,
+    fontSize: 22,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
     textAlign: 'center',
   },
-  hint: {
-    fontSize: 14,
+  priceHint: {
+    fontSize: 13,
+    color: IsiPlazaColors.textSecondary,
+    textAlign: 'center',
+  },
+  hint: {    fontSize: 14,
     color: IsiPlazaColors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,

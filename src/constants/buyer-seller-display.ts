@@ -9,5 +9,5 @@ export const SELLER_CARD_DESC_FONT_SIZE = 10;
 export const SELLER_CARD_DESC_LINE_HEIGHT = 12;
 export const SELLER_CARD_DESC_MAX_LINES = 5;
 
-/** Círculo rojo del badge «Mayorista Verificado». */
-export const VERIFIED_BADGE_RED = '#FF4C4D';
+/** Círculo del badge «Médico verificado». */
+export const VERIFIED_BADGE_RED = '#121660';

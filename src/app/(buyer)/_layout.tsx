@@ -35,12 +35,12 @@ export default function BuyerLayout() {
       <Tabs.Screen
         name="buscar"
         options={{
-          title: 'Buscar',
+          title: 'Inicio',
           tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="mayoristas"
+        name="medicos"
         options={{
           href: null,
         }}

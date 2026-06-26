@@ -1,13 +1,19 @@
-import * as DocumentPicker from 'expo-document-picker';
-import { Image } from 'expo-image';
+﻿import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { CatalogSavedImage } from '@/components/CatalogSavedImage';
 import {
-  CategoryPicker,
   IsiButton,
   IsiInput,
   IsiScreen,
@@ -24,7 +30,6 @@ import {
   getStatesForCountry,
   parseWhatsapp,
 } from '@/constants/location-data';
-import { SellerDocumentPreview } from '@/components/seller/SellerDocumentPreview';
 import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { useAuth } from '@/contexts/AuthContext';
 import { getStoredToken } from '@/services/api/client';
@@ -34,9 +39,6 @@ import {
   buildProfileFormData,
   buildProfilePatchBody,
   deleteCatalogImage,
-  deleteSellerProfileExcel,
-  deleteSellerProfilePdf,
-  fetchBusinessCategories,
   fetchCatalogImages,
   fetchProfile,
   patchProfileFormData,
@@ -45,30 +47,22 @@ import {
 import {
   applyCatalogUploadResultToPending,
   buildCatalogUploadQueue,
-  CATALOG_CAROUSEL_COUNT,
   CATALOG_MAX_IMAGES_PER_CAROUSEL,
   formatCatalogUploadFailureMessage,
   type PendingCatalogImage,
   uploadCatalogImageQueue,
   validateCatalogUploadLimits,
 } from '@/services/catalog-upload';
-import { validateProfileFormBeforeSave, validateDocumentSizeOnWeb } from '@/services/profile-form-validation';
-import {
-  mimeTypeForDocumentName,
-  type PendingDocument,
-} from '@/utils/prepare-document-upload';
+import { validateProfileFormBeforeSave } from '@/services/profile-form-validation';
 import { showUserMessage } from '@/utils/show-user-message';
-import {
-  catalogModeBlocksCarousel,
-  catalogModeBlocksExcel,
-  catalogModeBlocksPdf,
-  resolveSellerCatalogMode,
-} from '@/utils/seller-catalog-mode';
-import type { BusinessCategory, CatalogImage, SellerUser } from '@/types/seller-api';
+import { getCurrentCoordinates } from '@/utils/location';
+import type { CatalogImage, SellerUser } from '@/types/seller-api';
 
-const CATALOG_SLOTS = Array.from({ length: CATALOG_CAROUSEL_COUNT }, (_, i) => i + 1);
+/** Un solo carrusel de fotos del consultorio (display_order = 1 en API). */
+const PROFILE_PHOTOS_SLOT = 1;
+const MAX_PROFILE_PHOTOS = CATALOG_MAX_IMAGES_PER_CAROUSEL;
 
-function newLocalCatalogId(): string {
+function newLocalPhotoId(): string {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
@@ -77,34 +71,28 @@ export default function PerfilScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [categories, setCategories] = useState<BusinessCategory[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [pickerVisible, setPickerVisible] = useState(false);
-
   const [businessName, setBusinessName] = useState('');
   const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [categoryName, setCategoryName] = useState('');
   const [description, setDescription] = useState('');
   const [country, setCountry] = useState('');
   const [state, setState] = useState<string[]>([]);
   const [whatsappDialCode, setWhatsappDialCode] = useState(DEFAULT_WHATSAPP_DIAL_CODE);
   const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [instagram, setInstagram] = useState('');
-  const [facebook, setFacebook] = useState('');
-  const [website, setWebsite] = useState('');
+  const [professionalLicense, setProfessionalLicense] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [municipality, setMunicipality] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
 
-  const [catalogImages, setCatalogImages] = useState<CatalogImage[]>([]);
-  /** Imágenes locales por carrusel; se suben al guardar perfil */
-  const [pendingCatalogBySlot, setPendingCatalogBySlot] = useState<
-    Record<number, PendingCatalogImage[]>
-  >({});
-  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
-  const [catalogUploadProgress, setCatalogUploadProgress] = useState<{
+  const [savedPhotos, setSavedPhotos] = useState<CatalogImage[]>([]);
+  const [pendingPhotos, setPendingPhotos] = useState<PendingCatalogImage[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
     completed: number;
     total: number;
-    displayOrder: number;
   } | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [catalogAuthToken, setCatalogAuthToken] = useState<string | null>(null);
@@ -113,21 +101,12 @@ export default function PerfilScreen() {
     void getStoredToken().then(setCatalogAuthToken);
   }, []);
 
-  const catalogImageAuthHeaders = useMemo(
+  const photoAuthHeaders = useMemo(
     () => (catalogAuthToken ? { Authorization: `Bearer ${catalogAuthToken}` } : {}),
     [catalogAuthToken],
   );
 
-  const imagesBySlot = useMemo(() => {
-    const map = new Map<number, CatalogImage[]>();
-    CATALOG_SLOTS.forEach((slot) => map.set(slot, []));
-    catalogImages.forEach((img) => {
-      const list = map.get(img.display_order) ?? [];
-      list.push(img);
-      map.set(img.display_order, list);
-    });
-    return map;
-  }, [catalogImages]);
+  const photoCount = savedPhotos.length + pendingPhotos.length;
 
   const countryOptions = useMemo(
     () => COUNTRY_NAMES.map((name) => ({ value: name, label: name })),
@@ -152,14 +131,6 @@ export default function PerfilScreen() {
       return prev.filter((s) => allowed.includes(s));
     });
   }, []);
-
-  const [pendingPdf, setPendingPdf] = useState<PendingDocument | null>(null);
-  const [pendingExcel, setPendingExcel] = useState<PendingDocument | null>(null);
-  const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
-  const [existingExcelUrl, setExistingExcelUrl] = useState<string | null>(null);
-
-  const [carouselTitles, setCarouselTitles] = useState<Record<number, string>>({});
-  const [carouselDescriptions, setCarouselDescriptions] = useState<Record<number, string>>({});
 
   const applyProfileToForm = useCallback((profile: SellerUser) => {
     const sp = profile.seller_profile;
@@ -200,43 +171,25 @@ export default function PerfilScreen() {
       );
       setWhatsappNumber(number);
     }
-    
-    setInstagram(sp?.instagram ?? '');
-    setFacebook(sp?.facebook ?? '');
-    setWebsite(sp?.website ?? '');
-    setAvatarUrl(sp?.avatar_url ?? null);
-    setExistingPdfUrl(sp?.pdf_url ?? null);
-    setExistingExcelUrl(sp?.excel_url ?? null);
-    setCategoryId(sp?.business_category_id ?? sp?.business_category?.id ?? null);
-    setCategoryName(sp?.business_category?.name ?? '');
 
-    const titles: Record<number, string> = {};
-    const desc: Record<number, string> = {};
-    if (Array.isArray(sp?.carousel_metadata)) {
-      sp.carousel_metadata.forEach((item, idx) => {
-        titles[idx + 1] = item.title ?? '';
-        desc[idx + 1] = item.description ?? '';
-      });
-    }
-    setCarouselTitles(titles);
-    setCarouselDescriptions(desc);
+    setProfessionalLicense(sp?.professional_license ?? '');
+    setPhone(sp?.phone ?? '');
+    setAddress(sp?.address ?? '');
+    setMunicipality(sp?.municipality ?? '');
+    setLatitude(sp?.latitude ?? null);
+    setLongitude(sp?.longitude ?? null);
+    setAvatarUrl(sp?.avatar_url ?? null);
+    setCategoryId(sp?.business_category_id ?? sp?.business_category?.id ?? null);
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cats, profile, images] = await Promise.all([
-        fetchBusinessCategories(),
-        fetchProfile(),
-        fetchCatalogImages(),
-      ]);
-      setCategories(cats);
-      setCatalogImages(images);
+      const [profile, images] = await Promise.all([fetchProfile(), fetchCatalogImages()]);
       applyProfileToForm(profile);
+      setSavedPhotos(images.filter((img) => img.display_order === PROFILE_PHOTOS_SLOT));
       setPendingAvatarUri(null);
-      setPendingPdf(null);
-      setPendingExcel(null);
-      setPendingCatalogBySlot({});
+      setPendingPhotos([]);
     } catch (e: unknown) {
       const err = e as { message?: string };
       Alert.alert('Error', err.message ?? 'No se pudo cargar el perfil.');
@@ -246,35 +199,8 @@ export default function PerfilScreen() {
   }, [applyProfileToForm]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
-
-  const loadCategories = useCallback(async () => {
-    setCategoriesLoading(true);
-    try {
-      const cats = await fetchBusinessCategories();
-      setCategories(cats);
-      return cats;
-    } catch (e: unknown) {
-      const err = e as { message?: string };
-      Alert.alert('Rubros', err.message ?? 'No se pudieron cargar los rubros.');
-      return [];
-    } finally {
-      setCategoriesLoading(false);
-    }
-  }, []);
-
-  const openCategoryPicker = useCallback(async () => {
-    setPickerVisible(true);
-    if (categories.length === 0) {
-      await loadCategories();
-    }
-  }, [categories.length, loadCategories]);
-
-  const pickImage = async (): Promise<string | null> => {
-    const uris = await pickImages(1);
-    return uris[0] ?? null;
-  };
 
   const pickImages = async (maxCount: number): Promise<string[]> => {
     if (maxCount < 1) return [];
@@ -296,288 +222,81 @@ export default function PerfilScreen() {
     return result.assets.map((asset) => asset.uri);
   };
 
-  const getSlotImageCount = (slot: number): number => {
-    const saved = imagesBySlot.get(slot)?.length ?? 0;
-    const pending = pendingCatalogBySlot[slot]?.length ?? 0;
-    return saved + pending;
-  };
-
   const handlePickAvatar = async () => {
-    const uri = await pickImage();
-    if (uri) setPendingAvatarUri(uri);
+    const uris = await pickImages(1);
+    if (uris[0]) setPendingAvatarUri(uris[0]);
   };
 
-  const handlePickPdf = async () => {
-    if (pdfBlocked) {
-      Alert.alert(
-        'Catálogo en PDF',
-        'Elimina el Excel o todas las imágenes del carrusel antes de subir un PDF.',
-      );
+  const addProfilePhotos = async () => {
+    const remaining = MAX_PROFILE_PHOTOS - photoCount;
+    if (remaining <= 0) {
+      Alert.alert('Límite alcanzado', `Solo puedes tener hasta ${MAX_PROFILE_PHOTOS} fotos en el carrusel.`);
       return;
     }
 
-    const hasCarousel =
-      catalogImages.length > 0 || pendingCatalogCount > 0 || Object.values(carouselTitles).some(Boolean);
-    if (hasCarousel) {
-      Alert.alert(
-        'Reemplazar carrusel',
-        'Al subir un PDF se eliminarán todas las imágenes y textos del carrusel. ¿Continuar?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Continuar',
-            style: 'destructive',
-            onPress: () => {
-              void (async () => {
-                await clearAllCatalogImages();
-                await pickPdfFile();
-              })();
-            },
-          },
-        ],
-      );
-      return;
-    }
+    const uris = await pickImages(remaining);
+    if (uris.length === 0) return;
 
-    await pickPdfFile();
+    setPendingPhotos((prev) => [
+      ...prev,
+      ...uris.map((uri) => ({ localId: newLocalPhotoId(), uri })),
+    ]);
   };
 
-  const pickPdfFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
-    if (result.canceled || !result.assets[0]) return;
-
-    const asset = result.assets[0];
-    const name = asset.name ?? 'catalogo.pdf';
-    if (!name.toLowerCase().endsWith('.pdf')) {
-      Alert.alert('Archivo no válido', 'El catálogo debe ser un archivo PDF (.pdf).');
-      return;
-    }
-
-    const sizeError = await validateDocumentSizeOnWeb(asset.uri, 'El PDF');
-    if (sizeError) {
-      Alert.alert('Archivo muy grande', sizeError);
-      return;
-    }
-
-    setPendingPdf({
-      uri: asset.uri,
-      name,
-      type: mimeTypeForDocumentName(name, 'application/pdf'),
-    });
-    setPendingExcel(null);
+  const removePendingPhoto = (localId: string) => {
+    setPendingPhotos((prev) => prev.filter((item) => item.localId !== localId));
   };
 
-  const handlePickExcel = async () => {
-    if (excelBlocked) {
-      Alert.alert(
-        'Lista Excel',
-        'Elimina el PDF o todas las imágenes del carrusel antes de subir un Excel.',
-      );
-      return;
-    }
-
-    const hasCarousel =
-      catalogImages.length > 0 || pendingCatalogCount > 0 || Object.values(carouselTitles).some(Boolean);
-    if (hasCarousel) {
-      Alert.alert(
-        'Reemplazar carrusel',
-        'Al subir un Excel se eliminarán todas las imágenes y textos del carrusel. ¿Continuar?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Continuar',
-            style: 'destructive',
-            onPress: () => {
-              void (async () => {
-                await clearAllCatalogImages();
-                await pickExcelFile();
-              })();
-            },
-          },
-        ],
-      );
-      return;
-    }
-
-    await pickExcelFile();
-  };
-
-  const pickExcelFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-      copyToCacheDirectory: true,
-    });
-    if (result.canceled || !result.assets[0]) return;
-
-    const asset = result.assets[0];
-    const name = asset.name ?? 'lista.xlsx';
-    const ext = name.split('.').pop()?.toLowerCase();
-    if (ext !== 'xlsx' && ext !== 'xls') {
-      Alert.alert('Archivo no válido', 'La lista debe ser Excel (.xlsx o .xls).');
-      return;
-    }
-
-    const sizeError = await validateDocumentSizeOnWeb(asset.uri, 'El archivo Excel');
-    if (sizeError) {
-      Alert.alert('Archivo muy grande', sizeError);
-      return;
-    }
-
-    setPendingExcel({
-      uri: asset.uri,
-      name,
-      type: mimeTypeForDocumentName(name, asset.mimeType ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
-    });
-    setPendingPdf(null);
-  };
-
-  const handleRemovePdf = async () => {
-    if (pendingPdf) {
-      setPendingPdf(null);
-      return;
-    }
-    if (!existingPdfUrl) {
-      return;
-    }
+  const removeSavedPhoto = async (imageId: number) => {
+    setUploadingPhotos(true);
     try {
-      await deleteSellerProfilePdf();
-      setExistingPdfUrl(null);
-      await load();
-    } catch (e: unknown) {
-      const err = e as { message?: string };
-      Alert.alert('Error', err.message ?? 'No se pudo eliminar el PDF.');
+      await deleteCatalogImage(imageId);
+      setSavedPhotos((prev) => prev.filter((i) => i.id !== imageId));
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      Alert.alert('Error', e.message ?? 'No se pudo eliminar la imagen.');
+    } finally {
+      setUploadingPhotos(false);
     }
   };
 
-  const handleRemoveExcel = async () => {
-    if (pendingExcel) {
-      setPendingExcel(null);
-      return;
-    }
-    if (!existingExcelUrl) {
-      return;
-    }
-    try {
-      await deleteSellerProfileExcel();
-      setExistingExcelUrl(null);
-      await load();
-    } catch (e: unknown) {
-      const err = e as { message?: string };
-      Alert.alert('Error', err.message ?? 'No se pudo eliminar el Excel.');
-    }
-  };
+  const uploadPendingPhotos = useCallback(async (): Promise<string | null> => {
+    if (pendingPhotos.length === 0) return null;
 
-  const pendingCatalogCount = useMemo(
-    () => Object.values(pendingCatalogBySlot).reduce((sum, list) => sum + list.length, 0),
-    [pendingCatalogBySlot],
-  );
+    const pendingBySlot = { [PROFILE_PHOTOS_SLOT]: pendingPhotos };
+    const jobs = buildCatalogUploadQueue(pendingBySlot);
 
-  const catalogMode = useMemo(
-    () =>
-      resolveSellerCatalogMode({
-        existingPdfUrl,
-        existingExcelUrl,
-        pendingPdf: pendingPdf != null,
-        pendingExcel: pendingExcel != null,
-        catalogImageCount: catalogImages.length,
-        pendingCatalogCount,
-      }),
-    [
-      existingPdfUrl,
-      existingExcelUrl,
-      pendingPdf,
-      pendingExcel,
-      catalogImages.length,
-      pendingCatalogCount,
-    ],
-  );
-
-  const pdfBlocked = catalogModeBlocksPdf(catalogMode);
-  const excelBlocked = catalogModeBlocksExcel(catalogMode);
-  const carouselBlocked = catalogModeBlocksCarousel(catalogMode);
-
-  const pdfPreviewUri = useMemo(() => {
-    if (pdfBlocked) {
-      return null;
-    }
-    if (pendingPdf?.uri) {
-      return pendingPdf.uri;
-    }
-    if (existingPdfUrl) {
-      return resolveMediaUrl(existingPdfUrl) ?? existingPdfUrl;
-    }
-    return null;
-  }, [pdfBlocked, pendingPdf, existingPdfUrl]);
-
-  const excelPreviewUri = useMemo(() => {
-    if (excelBlocked) {
-      return null;
-    }
-    if (pendingExcel?.uri) {
-      return pendingExcel.uri;
-    }
-    if (existingExcelUrl) {
-      return resolveMediaUrl(existingExcelUrl) ?? existingExcelUrl;
-    }
-    return null;
-  }, [excelBlocked, pendingExcel, existingExcelUrl]);
-
-  const clearAllCatalogImages = useCallback(async () => {
-    for (const img of catalogImages) {
-      await deleteCatalogImage(img.id);
-    }
-    setCatalogImages([]);
-    setPendingCatalogBySlot({});
-    setCarouselTitles({});
-    setCarouselDescriptions({});
-  }, [catalogImages]);
-
-  const savedCountBySlot = useMemo(() => {
-    const map = new Map<number, number>();
-    CATALOG_SLOTS.forEach((slot) => map.set(slot, 0));
-    catalogImages.forEach((img) => {
-      map.set(img.display_order, (map.get(img.display_order) ?? 0) + 1);
-    });
-    return map;
-  }, [catalogImages]);
-
-  const uploadPendingCatalogImages = useCallback(async (): Promise<string | null> => {
-    const jobs = buildCatalogUploadQueue(pendingCatalogBySlot);
-    if (jobs.length === 0) {
-      return null;
-    }
-
+    const savedCountBySlot = new Map([[PROFILE_PHOTOS_SLOT, savedPhotos.length]]);
     const limitError = validateCatalogUploadLimits(
-      catalogImages.length,
-      pendingCatalogBySlot,
+      savedPhotos.length,
+      pendingBySlot,
       savedCountBySlot,
     );
-    if (limitError) {
-      return limitError;
-    }
+    if (limitError) return limitError;
 
-    setCatalogUploadProgress({ completed: 0, total: jobs.length, displayOrder: jobs[0]!.displayOrder });
+    setUploadProgress({ completed: 0, total: jobs.length });
+    setUploadingPhotos(true);
 
     const result = await uploadCatalogImageQueue(jobs, (progress) => {
-      setCatalogUploadProgress(progress);
-      setUploadingSlot(progress.displayOrder);
+      setUploadProgress({ completed: progress.completed, total: progress.total });
     });
 
-    setCatalogUploadProgress(null);
-    setUploadingSlot(null);
+    setUploadProgress(null);
+    setUploadingPhotos(false);
 
     if (result.uploaded.length > 0) {
-      setCatalogImages((prev) => [...prev, ...result.uploaded]);
+      setSavedPhotos((prev) => [...prev, ...result.uploaded]);
     }
 
-    setPendingCatalogBySlot((current) => applyCatalogUploadResultToPending(current, result));
+    const remaining = applyCatalogUploadResultToPending(pendingBySlot, result)[PROFILE_PHOTOS_SLOT] ?? [];
+    setPendingPhotos(remaining);
 
     if (result.failures.length > 0) {
       return formatCatalogUploadFailureMessage(result.failures);
     }
 
     return null;
-  }, [catalogImages.length, pendingCatalogBySlot, savedCountBySlot]);
+  }, [pendingPhotos, savedPhotos.length]);
 
   const handleSaveProfile = useCallback(async () => {
     setFormMessage(null);
@@ -586,34 +305,19 @@ export default function PerfilScreen() {
     try {
       const validationError = validateProfileFormBeforeSave({
         businessName,
-        categoryId,
         description,
         country,
         state,
         whatsappDialCode,
         whatsappNumber,
-        instagram,
-        facebook,
-        website,
-        pendingPdf,
-        pendingExcel,
-        catalogImages,
-        pendingCatalogBySlot,
+        savedPhotoCount: savedPhotos.length,
+        pendingPhotoCount: pendingPhotos.length,
       });
 
       if (validationError) {
         setFormMessage(validationError);
         showUserMessage('Revisa tu información', validationError);
         return;
-      }
-
-      if (catalogMode === 'carousel') {
-        const uploadError = await uploadPendingCatalogImages();
-        if (uploadError) {
-          setFormMessage(uploadError);
-          showUserMessage('Imágenes de catálogo', uploadError);
-          return;
-        }
       }
 
       const fullWhatsapp = formatWhatsapp(whatsappDialCode, whatsappNumber);
@@ -625,42 +329,39 @@ export default function PerfilScreen() {
         country,
         state,
         whatsapp: fullWhatsapp,
-        instagram,
-        facebook,
-        website,
+        instagram: '',
+        facebook: '',
+        website: '',
+        professional_license: professionalLicense,
+        phone,
+        address,
+        municipality,
+        latitude,
+        longitude,
       });
 
-      const carousel_metadata =
-        catalogMode === 'carousel'
-          ? CATALOG_SLOTS.map((slot) => ({
-              title: carouselTitles[slot] || '',
-              description: carouselDescriptions[slot] || '',
-            }))
-          : [];
+      if (pendingPhotos.length > 0) {
+        const uploadError = await uploadPendingPhotos();
+        if (uploadError) {
+          setFormMessage(uploadError);
+          showUserMessage('Fotos del consultorio', uploadError);
+          return;
+        }
+      }
 
-      const hasFiles =
-        pendingAvatarUri ||
-        (catalogMode === 'pdf' && pendingPdf) ||
-        (catalogMode === 'excel' && pendingExcel);
-
-      if (hasFiles) {
+      if (pendingAvatarUri) {
         const formData = await buildProfileFormData(body, {
           avatarUri: pendingAvatarUri,
-          pdf: catalogMode === 'pdf' ? pendingPdf : null,
-          excel: catalogMode === 'excel' ? pendingExcel : null,
-          carouselMetadata: carousel_metadata,
+          pdf: null,
+          excel: null,
+          carouselMetadata: [],
         });
         await patchProfileFormData(formData);
       } else {
-        await patchProfileJson({
-          ...body,
-          ...(catalogMode === 'carousel' ? { carousel_metadata } : {}),
-        });
+        await patchProfileJson(body);
       }
 
       setPendingAvatarUri(null);
-      setPendingPdf(null);
-      setPendingExcel(null);
       await refreshSession();
       await load();
     } catch (e: unknown) {
@@ -671,8 +372,8 @@ export default function PerfilScreen() {
       showUserMessage('Error al guardar', message);
     } finally {
       setSaving(false);
-      setCatalogUploadProgress(null);
-      setUploadingSlot(null);
+      setUploadProgress(null);
+      setUploadingPhotos(false);
     }
   }, [
     businessName,
@@ -682,410 +383,225 @@ export default function PerfilScreen() {
     state,
     whatsappDialCode,
     whatsappNumber,
-    instagram,
-    facebook,
-    website,
-    pendingPdf,
-    pendingExcel,
-    catalogImages,
-    pendingCatalogBySlot,
+    savedPhotos.length,
+    pendingPhotos.length,
     pendingAvatarUri,
-    carouselTitles,
-    carouselDescriptions,
-    catalogMode,
-    carouselTitles,
-    carouselDescriptions,
-    uploadPendingCatalogImages,
+    uploadPendingPhotos,
     refreshSession,
     load,
+    professionalLicense,
+    phone,
+    address,
+    municipality,
+    latitude,
+    longitude,
   ]);
-
-  const addCatalogImages = async (slot: number) => {
-    if (carouselBlocked) {
-      Alert.alert(
-        'Carrusel bloqueado',
-        'Elimina el PDF o el Excel antes de subir imágenes al carrusel.',
-      );
-      return;
-    }
-
-    const remaining = CATALOG_MAX_IMAGES_PER_CAROUSEL - getSlotImageCount(slot);
-    if (remaining <= 0) {
-      Alert.alert('Límite alcanzado', 'Solo puedes tener hasta 5 imágenes por carrusel.');
-      return;
-    }
-
-    const uris = await pickImages(remaining);
-    if (uris.length === 0) return;
-
-    setPendingCatalogBySlot((prev) => ({
-      ...prev,
-      [slot]: [
-        ...(prev[slot] ?? []),
-        ...uris.map((uri) => ({ localId: newLocalCatalogId(), uri })),
-      ],
-    }));
-  };
-
-  const removePendingCatalogImage = (slot: number, localId: string) => {
-    setPendingCatalogBySlot((prev) => {
-      const list = (prev[slot] ?? []).filter((item) => item.localId !== localId);
-      if (list.length === 0) {
-        const next = { ...prev };
-        delete next[slot];
-        return next;
-      }
-      return { ...prev, [slot]: list };
-    });
-  };
-
-  const removeSavedCatalogImage = async (slot: number, imageId: number) => {
-    setUploadingSlot(slot);
-    try {
-      await deleteCatalogImage(imageId);
-      setCatalogImages((prev) => prev.filter((i) => i.id !== imageId));
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      Alert.alert('Error', e.message ?? 'No se pudo eliminar la imagen.');
-    } finally {
-      setUploadingSlot(null);
-    }
-  };
 
   if (loading) {
     return <LoadingOverlay />;
   }
 
   const displayAvatar = pendingAvatarUri ?? resolveMediaUrl(avatarUrl) ?? avatarUrl;
-  const isBusy = saving || catalogUploadProgress !== null;
+  const isBusy = saving || uploadingPhotos || uploadProgress !== null;
+  const canAddMorePhotos = photoCount < MAX_PROFILE_PHOTOS;
 
   return (
     <View style={styles.screenRoot}>
       {isBusy ? <LoadingOverlay message="Guardando perfil…" variant="overlay" /> : null}
       <IsiScreen contentContainerStyle={styles.content}>
-      <Text style={styles.pageTitle}>Esta es la información que verán los usuarios</Text>
+        <Text style={styles.pageTitle}>Esta es la información que verán los pacientes</Text>
 
-      {user?.seller_profile?.is_verified ? (
-        <Text style={styles.badge}>✓ Cuenta verificada</Text>
-      ) : null}
+        {user?.seller_profile?.is_verified ? (
+          <Text style={styles.badge}>✓ Cuenta verificada</Text>
+        ) : null}
 
-      <IsiSectionTitle>Foto de perfil</IsiSectionTitle>
-      <Pressable
-        style={[styles.photoPlaceholder, displayAvatar && styles.photoPlaceholderFilled]}
-        onPress={handlePickAvatar}>
-        {displayAvatar ? (
-          <Image source={{ uri: displayAvatar }} style={styles.avatarImage} contentFit="cover" />
-        ) : (
-          <View style={styles.catalogEmptyInner}>
-            <Ionicons name="add-circle-outline" size={36} color={IsiPlazaColors.primary} />
-            <Text style={styles.photoPlaceholderText}>+ Añadir foto de perfil</Text>
-          </View>
-        )}
-      </Pressable>
-
-      <IsiSectionTitle>Datos del negocio</IsiSectionTitle>
-      <View style={styles.fields}>
-        <IsiInput
-          label="Nombre comercial"
-          value={businessName}
-          onChangeText={setBusinessName}
-          autoCapitalize="words"
-        />
-        <Pressable style={styles.selectField} onPress={openCategoryPicker}>
-          <Text style={styles.selectLabel}>Rubro</Text>
-          <Text style={styles.selectValue}>{categoryName || 'Seleccionar rubro'}</Text>
-        </Pressable>
-        <IsiInput
-          label="Descripción (máx. 100 caracteres)"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-          maxLength={100}
-          style={styles.textArea}
-        />
-        <SearchableSelect
-          label="País"
-          placeholder="Seleccionar país"
-          options={countryOptions}
-          value={country || undefined}
-          onChange={handleCountryChange}
-        />
-
-        <SearchableSelect
-          label="Estados / Provincias"
-          placeholder={country ? 'Seleccionar provincias' : 'Primero elige un país'}
-          options={stateOptions}
-          values={state}
-          onChangeMultiple={setState}
-          multiple
-          disabled={!country}
-        />
-
-      </View>
-
-      <IsiSectionTitle>Catálogo del negocio</IsiSectionTitle>
-      <Text style={styles.docHint}>
-        Solo puedes elegir una opción: PDF, Excel o carruseles con imágenes. Para cambiar, elimina lo que subiste
-        (máx. 300 MB por archivo).
-      </Text>
-      <View style={styles.docRow}>
+        <IsiSectionTitle>Foto de perfil</IsiSectionTitle>
         <Pressable
-          style={[
-            styles.docUploadSlot,
-            (pendingPdf || existingPdfUrl) && styles.docUploadSlotFilled,
-            pdfBlocked && styles.docUploadSlotDisabled,
-          ]}
-          onPress={handlePickPdf}
-          disabled={pdfBlocked}>
-          <Ionicons
-            name={pendingPdf || existingPdfUrl ? 'document-text' : 'add-circle-outline'}
-            size={32}
-            color={IsiPlazaColors.primary}
-          />
-          <Text style={styles.docUploadTitle}>Catálogo PDF</Text>
-          {pendingPdf ? (
-            <>
-              <Text style={styles.docUploadStatus} numberOfLines={2}>
-                {pendingPdf.name}
-              </Text>
-              <Text style={styles.docUploadAction}>Toca para cambiar</Text>
-            </>
-          ) : existingPdfUrl ? (
-            <>
-              <Text style={styles.docUploadStatus}>Catálogo guardado</Text>
-              <Text style={styles.docUploadAction}>Toca para reemplazar</Text>
-            </>
+          style={[styles.photoPlaceholder, displayAvatar && styles.photoPlaceholderFilled]}
+          onPress={handlePickAvatar}>
+          {displayAvatar ? (
+            <Image source={{ uri: displayAvatar }} style={styles.avatarImage} contentFit="cover" />
           ) : (
-            <Text style={styles.docUploadPlaceholder}>+ Añadir PDF</Text>
+            <View style={styles.emptyInner}>
+              <Ionicons name="add-circle-outline" size={36} color={IsiPlazaColors.primary} />
+              <Text style={styles.photoPlaceholderText}>+ Añadir foto de perfil</Text>
+            </View>
           )}
-          {(pendingPdf || existingPdfUrl) && !pdfBlocked ? (
-            <Pressable style={styles.docRemoveBtn} onPress={() => void handleRemovePdf()}>
-              <Text style={styles.docRemoveText}>Eliminar PDF</Text>
-            </Pressable>
-          ) : null}
         </Pressable>
 
-        <Pressable
-          style={[
-            styles.docUploadSlot,
-            (pendingExcel || existingExcelUrl) && styles.docUploadSlotFilled,
-            excelBlocked && styles.docUploadSlotDisabled,
-          ]}
-          onPress={handlePickExcel}
-          disabled={excelBlocked}>
-          <Ionicons
-            name={pendingExcel || existingExcelUrl ? 'document-attach-outline' : 'add-circle-outline'}
-            size={32}
-            color={IsiPlazaColors.primary}
+        <IsiSectionTitle>Datos del consultorio</IsiSectionTitle>
+        <View style={styles.fields}>
+          <IsiInput
+            label="Nombre comercial"
+            value={businessName}
+            onChangeText={setBusinessName}
+            autoCapitalize="words"
           />
-          <Text style={styles.docUploadTitle}>Lista Excel</Text>
-          {pendingExcel ? (
-            <>
-              <Text style={styles.docUploadStatus} numberOfLines={2}>
-                {pendingExcel.name}
-              </Text>
-              <Text style={styles.docUploadAction}>Toca para cambiar</Text>
-            </>
-          ) : existingExcelUrl ? (
-            <>
-              <Text style={styles.docUploadStatus}>Lista guardada</Text>
-              <Text style={styles.docUploadAction}>Toca para reemplazar</Text>
-            </>
-          ) : (
-            <Text style={styles.docUploadPlaceholder}>+ Añadir Excel</Text>
-          )}
-          {(pendingExcel || existingExcelUrl) && !excelBlocked ? (
-            <Pressable style={styles.docRemoveBtn} onPress={() => void handleRemoveExcel()}>
-              <Text style={styles.docRemoveText}>Eliminar Excel</Text>
-            </Pressable>
-          ) : null}
-        </Pressable>
-      </View>
-
-      {pdfPreviewUri ? (
-        <SellerDocumentPreview
-          uri={pdfPreviewUri}
-          type="pdf"
-          fileName={pendingPdf?.name}
-        />
-      ) : null}
-
-      {excelPreviewUri ? (
-        <SellerDocumentPreview
-          uri={excelPreviewUri}
-          type="excel"
-          fileName={pendingExcel?.name}
-        />
-      ) : null}
-
-      <IsiSectionTitle>Contacto y redes</IsiSectionTitle>
-      <View style={styles.fields}>
-        <View style={styles.whatsappRow}>
-          <View style={styles.whatsappPrefix}>
-            <SearchableSelect
-              label="Código"
-              placeholder="Prefijo"
-              options={dialCodeOptions}
-              value={whatsappDialCode}
-              onChange={setWhatsappDialCode}
-              compact
-            />
-          </View>
-          <View style={styles.whatsappNum}>
-            <IsiInput
-              label="Número (máx 12)"
-              value={whatsappNumber}
-              onChangeText={(text) => setWhatsappNumber(text.replace(/\s/g, ''))}
-              keyboardType="phone-pad"
-              maxLength={12}
-            />
-          </View>
+          <IsiInput
+            label="Descripción (máx. 100 caracteres)"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={4}
+            maxLength={100}
+            style={styles.textArea}
+          />
+          <SearchableSelect
+            label="País"
+            placeholder="Seleccionar país"
+            options={countryOptions}
+            value={country || undefined}
+            onChange={handleCountryChange}
+          />
+          <SearchableSelect
+            label="Estados / Provincias"
+            placeholder={country ? 'Seleccionar provincias' : 'Primero elige un país'}
+            options={stateOptions}
+            values={state}
+            onChangeMultiple={setState}
+            multiple
+            disabled={!country}
+          />
         </View>
-        <Text style={styles.nameHint}>El link web se autogenerará con mensaje predeterminado.</Text>
-        <IsiInput label="Instagram" value={instagram} onChangeText={setInstagram} autoCapitalize="none" maxLength={25} />
-        <IsiInput label="Facebook" value={facebook} onChangeText={setFacebook} autoCapitalize="none" maxLength={25} />
-        <IsiInput
-          label="Página web"
-          placeholder="https://misitio.com"
-          value={website}
-          onChangeText={setWebsite}
-          autoCapitalize="none"
-          keyboardType="url"
-        />
-      </View>
 
-      <IsiSectionTitle>Catálogo — carruseles (5 posiciones)</IsiSectionTitle>
-      <Text style={styles.catalogHint}>
-        {carouselBlocked
-          ? 'Elimina el PDF o Excel para habilitar los carruseles.'
-          : 'Hasta 5 imágenes por carrusel (25 en total). Cada imagen se envía al guardar.'}
-      </Text>
-      {CATALOG_SLOTS.map((slot) => {
-        const savedImages = imagesBySlot.get(slot) ?? [];
-        const pendingImages = pendingCatalogBySlot[slot] ?? [];
-        const imageCount = getSlotImageCount(slot);
-        const canAddMore = imageCount < CATALOG_MAX_IMAGES_PER_CAROUSEL;
-        const isUploading = uploadingSlot === slot;
+        <IsiSectionTitle>Datos profesionales</IsiSectionTitle>
+        <View style={styles.fields}>
+          <IsiInput
+            label="Cédula profesional"
+            value={professionalLicense}
+            onChangeText={setProfessionalLicense}
+            autoCapitalize="characters"
+          />
+          <IsiInput
+            label="Celular"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+          <IsiInput label="Dirección del consultorio" value={address} onChangeText={setAddress} />
+          <IsiInput label="Municipio / alcaldía" value={municipality} onChangeText={setMunicipality} />
+          <IsiButton
+            label={
+              latitude != null && longitude != null
+                ? `Ubicación guardada (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`
+                : 'Usar mi ubicación actual'
+            }
+            variant="outline"
+            onPress={() => {
+              void (async () => {
+                const coords = await getCurrentCoordinates();
+                if (coords) {
+                  setLatitude(coords.latitude);
+                  setLongitude(coords.longitude);
+                }
+              })();
+            }}
+          />
+        </View>
 
-        return (
-          <View
-            key={slot}
-            style={[styles.catalogCard, carouselBlocked && styles.catalogCardDisabled]}>
-            <Text style={styles.catalogTitle}>
-              Carrusel {slot} ({imageCount}/{CATALOG_MAX_IMAGES_PER_CAROUSEL})
-            </Text>
+        <IsiSectionTitle>Carrusel de fotos del consultorio</IsiSectionTitle>
+        <Text style={styles.hint}>
+          Sube hasta {MAX_PROFILE_PHOTOS} fotos. Los pacientes las verán en un carrusel en tu perfil
+          público. Se guardan al pulsar Guardar perfil.
+        </Text>
 
-            <IsiInput
-              label="Título del carrusel"
-              maxLength={30}
-              value={carouselTitles[slot] || ''}
-              onChangeText={(val) => setCarouselTitles((prev) => ({ ...prev, [slot]: val }))}
-              editable={!carouselBlocked}
-            />
-            <IsiInput
-              label="Descripción del carrusel"
-              maxLength={65}
-              value={carouselDescriptions[slot] || ''}
-              onChangeText={(val) => setCarouselDescriptions((prev) => ({ ...prev, [slot]: val }))}
-              editable={!carouselBlocked}
-            />
-
-            <View style={styles.catalogImagesWrap}>
-              {imageCount === 0 ? (
-                <Pressable
-                  style={styles.catalogAddSlotLarge}
-                  onPress={() => addCatalogImages(slot)}
-                  disabled={isUploading || saving || carouselBlocked}>
-                  <Text style={styles.carouselSlotText}>+ Añadir imagen (máx 5)</Text>
-                </Pressable>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.carouselContent}>
+          {savedPhotos.map((img) => (
+            <View key={`saved-${img.id}`} style={styles.carouselSlide}>
+              <CatalogSavedImage
+                imageId={img.id}
+                imageUrl={img.image_url}
+                authHeaders={photoAuthHeaders}
+                style={styles.carouselImage}
+              />
+              <Pressable
+                style={styles.removeBtn}
+                onPress={() => void removeSavedPhoto(img.id)}
+                disabled={isBusy}>
+                <Ionicons name="close" size={18} color={IsiPlazaColors.white} />
+              </Pressable>
+            </View>
+          ))}
+          {pendingPhotos.map((item) => (
+            <View key={item.localId} style={styles.carouselSlide}>
+              <Image source={{ uri: item.uri }} style={styles.carouselImage} contentFit="cover" />
+              <Pressable
+                style={styles.removeBtn}
+                onPress={() => removePendingPhoto(item.localId)}
+                disabled={isBusy}>
+                <Ionicons name="close" size={18} color={IsiPlazaColors.white} />
+              </Pressable>
+            </View>
+          ))}
+          {canAddMorePhotos ? (
+            <Pressable
+              style={styles.carouselAdd}
+              onPress={() => void addProfilePhotos()}
+              disabled={isBusy}>
+              {uploadingPhotos ? (
+                <ActivityIndicator color={IsiPlazaColors.primary} />
               ) : (
-                <View style={styles.catalogImagesGrid}>
-                  {savedImages.map((img) => (
-                      <View key={`saved-${img.id}`} style={styles.catalogThumb}>
-                        <CatalogSavedImage
-                          imageId={img.id}
-                          imageUrl={img.image_url}
-                          authHeaders={catalogImageAuthHeaders}
-                          style={styles.catalogThumbImage}
-                        />
-                        <Pressable
-                          style={styles.catalogRemoveBtn}
-                          onPress={() => removeSavedCatalogImage(slot, img.id)}
-                          disabled={isUploading || saving}
-                          accessibilityLabel="Eliminar imagen">
-                          <Ionicons name="close" size={18} color={IsiPlazaColors.white} />
-                        </Pressable>
-                      </View>
-                  ))}
-                  {pendingImages.map((item) => (
-                    <View key={item.localId} style={styles.catalogThumb}>
-                      <Image source={{ uri: item.uri }} style={styles.catalogThumbImage} contentFit="cover" />
-                      <Pressable
-                        style={styles.catalogRemoveBtn}
-                        onPress={() => removePendingCatalogImage(slot, item.localId)}
-                        disabled={isUploading || saving}
-                        accessibilityLabel="Quitar imagen seleccionada">
-                        <Ionicons name="close" size={18} color={IsiPlazaColors.white} />
-                      </Pressable>
-                    </View>
-                  ))}
-                  {canAddMore ? (
-                    <Pressable
-                      style={styles.catalogAddSlot}
-                      onPress={() => addCatalogImages(slot)}
-                      disabled={isUploading || saving}>
-                      <Text style={styles.carouselSlotTextSmall}>+ Añadir</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
+                <>
+                  <Ionicons name="add-circle-outline" size={32} color={IsiPlazaColors.primary} />
+                  <Text style={styles.carouselAddText}>Añadir</Text>
+                </>
               )}
+            </Pressable>
+          ) : null}
+        </ScrollView>
 
-              {isUploading ? (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator color={IsiPlazaColors.primary} size="large" />
-                </View>
-              ) : null}
+        <IsiSectionTitle>Contacto</IsiSectionTitle>
+        <View style={styles.fields}>
+          <View style={styles.whatsappRow}>
+            <View style={styles.whatsappPrefix}>
+              <SearchableSelect
+                label="Código"
+                placeholder="Prefijo"
+                options={dialCodeOptions}
+                value={whatsappDialCode}
+                onChange={setWhatsappDialCode}
+                compact
+              />
+            </View>
+            <View style={styles.whatsappNum}>
+              <IsiInput
+                label="WhatsApp (máx 12)"
+                value={whatsappNumber}
+                onChangeText={(text) => setWhatsappNumber(text.replace(/\s/g, ''))}
+                keyboardType="phone-pad"
+                maxLength={12}
+              />
             </View>
           </View>
-        );
-      })}
-
-      {formMessage ? (
-        <View style={styles.formMessageBox}>
-          <Text style={styles.formMessageText}>{formMessage}</Text>
+          <Text style={styles.nameHint}>
+            Los pacientes podrán contactarte por WhatsApp desde tu perfil público.
+          </Text>
         </View>
-      ) : null}
 
-      {catalogUploadProgress ? (
-        <Text style={styles.catalogUploadProgress}>
-          Subiendo imagen{' '}
-          {Math.min(catalogUploadProgress.completed + 1, catalogUploadProgress.total)} de{' '}
-          {catalogUploadProgress.total} (carrusel {catalogUploadProgress.displayOrder})…
-        </Text>
-      ) : null}
+        {formMessage ? (
+          <View style={styles.formMessageBox}>
+            <Text style={styles.formMessageText}>{formMessage}</Text>
+          </View>
+        ) : null}
 
-      <IsiButton
-        label={isBusy ? 'Guardando…' : 'Guardar perfil'}
-        onPress={() => {
-          void handleSaveProfile();
-        }}
-        disabled={isBusy}
-        style={styles.saveButton}
-      />
+        {uploadProgress ? (
+          <Text style={styles.uploadProgress}>
+            Subiendo foto {Math.min(uploadProgress.completed + 1, uploadProgress.total)} de{' '}
+            {uploadProgress.total}…
+          </Text>
+        ) : null}
 
-      <CategoryPicker
-        visible={pickerVisible}
-        categories={categories}
-        selectedId={categoryId}
-        loading={categoriesLoading}
-        onSelect={(cat) => {
-          setCategoryId(cat.id);
-          setCategoryName(cat.name);
-        }}
-        onClose={() => setPickerVisible(false)}
-        onRetry={loadCategories}
-      />
+        <IsiButton
+          label={isBusy ? 'Guardando…' : 'Guardar perfil'}
+          onPress={() => {
+            void handleSaveProfile();
+          }}
+          disabled={isBusy}
+          style={styles.saveButton}
+        />
       </IsiScreen>
     </View>
   );
@@ -1122,6 +638,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: -IsiPlazaSpacing.sm,
   },
+  hint: {
+    fontSize: 13,
+    color: IsiPlazaColors.textSecondary,
+    lineHeight: 18,
+  },
   whatsappRow: {
     flexDirection: 'row',
     gap: IsiPlazaSpacing.sm,
@@ -1134,13 +655,6 @@ const styles = StyleSheet.create({
   whatsappNum: {
     flex: 1,
     minWidth: 0,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: IsiPlazaSpacing.md,
-  },
-  half: {
-    flex: 1,
   },
   textArea: {
     minHeight: 100,
@@ -1165,223 +679,74 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  emptyInner: {
+    alignItems: 'center',
+    gap: IsiPlazaSpacing.xs,
+  },
   photoPlaceholderText: {
     color: IsiPlazaColors.primary,
     fontWeight: '600',
   },
-  selectField: {
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.border,
-    borderRadius: IsiPlazaRadius.sm,
-    padding: IsiPlazaSpacing.md,
-    gap: IsiPlazaSpacing.xs,
-  },
-  selectLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: IsiPlazaColors.text,
-  },
-  selectValue: {
-    fontSize: 16,
-    color: IsiPlazaColors.textSecondary,
-  },
-  catalogCard: {
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.border,
-    borderRadius: IsiPlazaRadius.md,
-    padding: IsiPlazaSpacing.md,
+  carouselContent: {
     gap: IsiPlazaSpacing.sm,
+    paddingVertical: IsiPlazaSpacing.xs,
   },
-  catalogHint: {
-    fontSize: 12,
-    color: IsiPlazaColors.textSecondary,
-    lineHeight: 16,
-    marginBottom: IsiPlazaSpacing.sm,
-  },
-  catalogUploadProgress: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: IsiPlazaColors.primary,
-    textAlign: 'center',
-    marginBottom: IsiPlazaSpacing.sm,
-  },
-  formMessageBox: {
-    marginBottom: IsiPlazaSpacing.sm,
-    padding: IsiPlazaSpacing.md,
-    borderRadius: IsiPlazaRadius.sm,
-    backgroundColor: '#FFF0F0',
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.primaryMuted,
-  },
-  formMessageText: {
-    fontSize: 13,
-    color: IsiPlazaColors.primary,
-    lineHeight: 18,
-  },
-  catalogTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: IsiPlazaColors.text,
-  },
-  docHint: {
-    fontSize: 12,
-    color: IsiPlazaColors.textSecondary,
-    lineHeight: 16,
-    marginBottom: IsiPlazaSpacing.sm,
-  },
-  docRow: {
-    flexDirection: 'row',
-    gap: IsiPlazaSpacing.md,
-    marginBottom: IsiPlazaSpacing.md,
-  },
-  docUploadSlot: {
-    flex: 1,
-    minHeight: 130,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: IsiPlazaColors.primaryMuted,
+  carouselSlide: {
+    width: 160,
+    height: 120,
     borderRadius: IsiPlazaRadius.md,
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: IsiPlazaSpacing.sm,
-    paddingVertical: IsiPlazaSpacing.md,
-    gap: 6,
-  },
-  docUploadSlotFilled: {
-    borderStyle: 'solid',
-    borderColor: IsiPlazaColors.primary,
-    backgroundColor: IsiPlazaColors.white,
-  },
-  docUploadTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: IsiPlazaColors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  docUploadPlaceholder: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: IsiPlazaColors.primary,
-    textAlign: 'center',
-  },
-  docUploadStatus: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: IsiPlazaColors.text,
-    textAlign: 'center',
-  },
-  docUploadAction: {
-    fontSize: 11,
-    color: IsiPlazaColors.textSecondary,
-    textAlign: 'center',
-  },
-  docUploadSlotDisabled: {
-    opacity: 0.45,
-  },
-  docRemoveBtn: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: IsiPlazaRadius.sm,
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.primary,
-    backgroundColor: IsiPlazaColors.white,
-  },
-  docRemoveText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: IsiPlazaColors.primary,
-  },
-  catalogCardDisabled: {
-    opacity: 0.5,
-  },
-  catalogImagesWrap: {
-    position: 'relative',
-    minHeight: 100,
-  },
-  catalogImagesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: IsiPlazaSpacing.sm,
-  },
-  catalogThumb: {
-    width: '31%',
-    aspectRatio: 1,
-    borderRadius: IsiPlazaRadius.sm,
     overflow: 'hidden',
+    position: 'relative',
     backgroundColor: IsiPlazaColors.backgroundMuted,
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.border,
   },
-  catalogThumbImage: {
+  carouselImage: {
     width: '100%',
     height: '100%',
   },
-  catalogRemoveBtn: {
+  carouselAdd: {
+    width: 120,
+    height: 120,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: IsiPlazaColors.primaryMuted,
+    borderRadius: IsiPlazaRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: IsiPlazaColors.backgroundMuted,
+  },
+  carouselAddText: {
+    color: IsiPlazaColors.primary,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  removeBtn: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 6,
+    right: 6,
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
   },
-  catalogAddSlotLarge: {
-    height: 120,
-    borderRadius: IsiPlazaRadius.md,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: IsiPlazaColors.primaryMuted,
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: IsiPlazaSpacing.md,
-  },
-  catalogAddSlot: {
-    width: '31%',
-    aspectRatio: 1,
+  formMessageBox: {
+    backgroundColor: '#FEE2E2',
     borderRadius: IsiPlazaRadius.sm,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: IsiPlazaColors.primaryMuted,
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
+    padding: IsiPlazaSpacing.md,
   },
-  catalogEmptyInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: IsiPlazaSpacing.md,
+  formMessageText: {
+    color: '#991B1B',
+    fontSize: 14,
   },
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-    borderRadius: IsiPlazaRadius.md,
-  },
-  carouselSlotText: {
-    fontSize: 16,
-    color: IsiPlazaColors.primary,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  carouselSlotTextSmall: {
+  uploadProgress: {
     fontSize: 13,
-    color: IsiPlazaColors.primary,
-    fontWeight: '700',
+    color: IsiPlazaColors.textSecondary,
     textAlign: 'center',
   },
   saveButton: {
-    marginTop: IsiPlazaSpacing.md,
-    marginBottom: IsiPlazaSpacing.xl,
+    marginTop: IsiPlazaSpacing.sm,
+    marginBottom: IsiPlazaSpacing.lg,
   },
 });

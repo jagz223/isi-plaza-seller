@@ -25,6 +25,12 @@ export type SellerProfile = {
   description?: string | null;
   country?: string | null;
   state?: string | null;
+  professional_license?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  municipality?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   whatsapp?: string | null;
   instagram?: string | null;
   facebook?: string | null;
@@ -32,6 +38,7 @@ export type SellerProfile = {
   business_category_id?: number | null;
   business_category?: BusinessCategory | null;
   carousel_metadata?: { title?: string; description?: string }[];
+  doctor_services?: DoctorServiceItem[];
 };
 
 export type SellerUser = {
@@ -66,6 +73,36 @@ export type SubscriptionResponse = {
 };
 
 export type SellerInteractionEventType = 'whatsapp_click' | 'website_click';
+
+export type DoctorServiceItem = {
+  id: number;
+  treatment_id: number;
+  price: number;
+  treatment?: {
+    id: number;
+    name: string;
+    slug: string;
+    treatment_section_id: number;
+    section?: { id: number; name: string } | null;
+  };
+};
+
+export type Treatment = {
+  id: number;
+  name: string;
+  slug: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+export type TreatmentSection = {
+  id: number;
+  name: string;
+  slug: string;
+  sort_order: number;
+  is_active: boolean;
+  treatments: Treatment[];
+};
 
 export type MetricsResponse = {
   period_label: string;

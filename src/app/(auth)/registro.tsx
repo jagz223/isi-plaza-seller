@@ -109,8 +109,8 @@ export default function RegistroScreen() {
       <IsiHeader variant="access" showBack={true} />
       <IsiScreen contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.heading}>¡Regístrate!</Text>
-          <Text style={styles.subheading}>Crea tu cuenta para comenzar a vender y comprar.</Text>
+          <Text style={styles.heading}>Registro médico</Text>
+          <Text style={styles.subheading}>Crea tu cuenta para publicar tu consultorio en Odontica.</Text>
 
           <View style={styles.section}>
           <IsiInput label="Nombre" placeholder="Tu nombre o empresa" value={regName} onChangeText={setRegName} />
