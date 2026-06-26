@@ -16,6 +16,8 @@ import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi
 export type SelectOption = {
   value: string;
   label: string;
+  /** Texto corto en el disparador (ej. prefijo +52 sin nombre del país). */
+  shortLabel?: string;
   /** Texto extra para búsqueda (ej. nombre del país detrás del prefijo) */
   searchText?: string;
 };
@@ -75,7 +77,7 @@ export function SearchableSelect({
       return `${values.length} seleccionados`;
     }
     const opt = options.find((o) => o.value === value);
-    return opt?.label ?? value ?? '';
+    return opt?.shortLabel ?? opt?.label ?? value ?? '';
   }, [multiple, options, value, values]);
 
   const filtered = useMemo(() => {
@@ -140,8 +142,8 @@ export function SearchableSelect({
           {label ? <Text style={styles.triggerInlineLabel}>{label}</Text> : null}
           <View style={styles.triggerRow}>
             <Text
-              style={[styles.triggerValue, !displayValue && styles.triggerPlaceholder]}
-              numberOfLines={2}>
+              style={[styles.triggerValue, styles.triggerValueCompact, !displayValue && styles.triggerPlaceholder]}
+              numberOfLines={1}>
               {displayValue || placeholder}
             </Text>
             <Ionicons name="chevron-down" size={20} color={IsiPlazaColors.textSecondary} />
@@ -193,7 +195,9 @@ export function SearchableSelect({
           <Pressable style={styles.backdrop} onPress={close} />
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, IsiPlazaSpacing.lg) }]}>
             <View style={styles.handle} />
-            <Text style={styles.sheetTitle}>{isPill ? (pillPrefix ?? label) : label}</Text>
+            <Text style={styles.sheetTitle}>
+              {isPill ? (pillPrefix ?? label) : label || placeholder || 'Seleccionar'}
+            </Text>
 
             <View style={styles.searchBox}>
               <Ionicons name="search" size={20} color={IsiPlazaColors.textSecondary} />
@@ -269,7 +273,10 @@ const styles = StyleSheet.create({
     gap: IsiPlazaSpacing.xs,
   },
   triggerCompact: {
-    paddingVertical: IsiPlazaSpacing.sm,
+    paddingVertical: 10,
+    paddingHorizontal: IsiPlazaSpacing.sm,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   triggerPill: {
     borderWidth: 2,
@@ -306,6 +313,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: IsiPlazaColors.text,
+  },
+  triggerValueCompact: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   triggerPlaceholder: {
     color: IsiPlazaColors.textSecondary,

@@ -1,13 +1,26 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IsiButton, IsiInput, IsiScreen, IsiSectionTitle, LoadingOverlay } from '@/components/isi-plaza';
-import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
+import { DoctorFieldCard, DoctorSaveButton } from '@/components/doctor';
+import { DoctorUIColors, DoctorUIRadius } from '@/constants/doctor-ui';
+import { IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatValidationErrors } from '@/services/api/errors';
 import { fetchSettings, patchPassword } from '@/services/api/seller';
 import type { SettingsResponse } from '@/types/seller-api';
+import { LoadingOverlay } from '@/components/isi-plaza';
 
 function validatePassword(password: string): string | null {
   if (password.length < 6 || password.length > 14) {
@@ -17,6 +30,7 @@ function validatePassword(password: string): string | null {
 }
 
 export default function AjustesScreen() {
+  const router = useRouter();
   const { signOut } = useAuth();
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,16 +55,17 @@ export default function AjustesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
     }, [load]),
   );
 
-  const openPromotionWhatsApp = () => {
-    if (!settings?.promotion_whatsapp_url) {
-      Alert.alert('Error', 'URL de promoción no disponible.');
+  const openRenewalWhatsApp = () => {
+    const url = settings?.promotion_whatsapp_url;
+    if (!url) {
+      Alert.alert('Error', 'URL de WhatsApp no disponible.');
       return;
     }
-    Linking.openURL(settings.promotion_whatsapp_url);
+    Linking.openURL(url);
   };
 
   const handleChangePassword = async () => {
@@ -91,84 +106,184 @@ export default function AjustesScreen() {
   }
 
   const expiresText = settings?.subscription_expires_at_formatted
-    ? `Tu suscripción acaba el día ${settings.subscription_expires_at_formatted}`
-    : 'Tu suscripción no tiene fecha de vencimiento registrada.';
+    ? `TU SUSCRIPCIÓN TERMINA EL ${settings.subscription_expires_at_formatted.toUpperCase()}`
+    : 'TU SUSCRIPCIÓN NO TIENE FECHA DE VENCIMIENTO REGISTRADA';
 
   return (
-    <IsiScreen contentContainerStyle={styles.content}>
-      <Text style={styles.pageTitle}>Opciones De Tu Cuenta</Text>
-
-      <View style={styles.subscriptionCard}>
-        <Text style={styles.subscriptionText}>{expiresText}</Text>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>CUENTA</Text>
+        <Pressable style={styles.backBtn} onPress={() => router.push('/(app)/perfil')}>
+          <Text style={styles.backBtnText}>Volver</Text>
+        </Pressable>
       </View>
 
-      <IsiButton
-        label={settings?.promotion_button_label ?? 'Comprar promoción (banners)'}
-        onPress={openPromotionWhatsApp}
-      />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <Text style={styles.subscriptionLine}>{expiresText}</Text>
 
-      <IsiSectionTitle>Cambiar contraseña</IsiSectionTitle>
-      <View style={styles.fields}>
-        <IsiInput
-          label="Contraseña actual"
-          placeholder="••••••••"
-          secureTextEntry
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-        />
-        <IsiInput
-          label="Nueva contraseña (6-14 caracteres)"
-          placeholder="••••••••"
-          secureTextEntry
-          value={newPassword}
-          onChangeText={setNewPassword}
-        />
-        <IsiInput
-          label="Confirmar nueva contraseña"
-          placeholder="••••••••"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
-        <IsiButton label="Actualizar contraseña" variant="outline" onPress={handleChangePassword} disabled={saving} />
-      </View>
+        <View style={styles.renewalBox}>
+          <Text style={styles.renewalText}>
+            CONTACTAR AL VENDEDOR PARA RENOVAR SUSCRIPCIÓN O ADQUIRIR PROMOCIÓN DE BANNER
+          </Text>
+          <Pressable style={styles.whatsappBtn} onPress={openRenewalWhatsApp}>
+            <Text style={styles.whatsappBtnText}>ENVIAR WHATSAPP</Text>
+          </Pressable>
+        </View>
 
-      <View style={styles.logoutSection}>
-        <IsiButton label="Cerrar sesión" variant="outline" onPress={signOut} />
-      </View>
-    </IsiScreen>
+        <Text style={styles.sectionTitle}>CAMBIAR CONTRASEÑA</Text>
+
+        <View style={styles.passwordPanel}>
+          <DoctorFieldCard label="Contraseña actual">
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Tu contraseña actual"
+              placeholderTextColor={DoctorUIColors.textMuted}
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+            />
+          </DoctorFieldCard>
+
+          <DoctorFieldCard label="Nueva contraseña">
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="6 a 14 caracteres"
+              placeholderTextColor={DoctorUIColors.textMuted}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+          </DoctorFieldCard>
+
+          <DoctorFieldCard label="Confirmación">
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Repite la nueva contraseña"
+              placeholderTextColor={DoctorUIColors.textMuted}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+          </DoctorFieldCard>
+
+          <DoctorSaveButton
+            label="Actualizar contraseña"
+            onPress={() => void handleChangePassword()}
+            disabled={saving}
+            loading={saving}
+          />
+        </View>
+
+        <Pressable style={styles.logoutBtn} onPress={signOut}>
+          <Text style={styles.logoutText}>Cerrar sesión</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  safe: {
+    flex: 1,
+    backgroundColor: DoctorUIColors.white,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: IsiPlazaSpacing.lg,
-    paddingTop: IsiPlazaSpacing.xl,
+    paddingTop: IsiPlazaSpacing.sm,
+    paddingBottom: IsiPlazaSpacing.md,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: DoctorUIColors.text,
+    letterSpacing: 0.5,
+  },
+  backBtn: {
+    backgroundColor: DoctorUIColors.panel,
+    borderRadius: DoctorUIRadius.button,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  backBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+  },
+  scrollContent: {
+    paddingHorizontal: IsiPlazaSpacing.lg,
+    paddingBottom: IsiPlazaSpacing.xl,
     gap: IsiPlazaSpacing.lg,
   },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: IsiPlazaColors.text,
+  subscriptionLine: {
     textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+    letterSpacing: 0.3,
+    lineHeight: 20,
   },
-  subscriptionCard: {
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-    borderLeftWidth: 4,
-    borderLeftColor: IsiPlazaColors.primary,
-    borderRadius: IsiPlazaRadius.sm,
+  renewalBox: {
+    borderWidth: 1.5,
+    borderColor: DoctorUIColors.primary,
+    borderRadius: DoctorUIRadius.card,
     padding: IsiPlazaSpacing.md,
-  },
-  subscriptionText: {
-    fontSize: 15,
-    color: IsiPlazaColors.text,
-    lineHeight: 22,
-  },
-  fields: {
     gap: IsiPlazaSpacing.md,
+    alignItems: 'center',
   },
-  logoutSection: {
-    marginTop: IsiPlazaSpacing.md,
-    marginBottom: IsiPlazaSpacing.xl,
+  renewalText: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+    lineHeight: 18,
+    letterSpacing: 0.2,
+  },
+  whatsappBtn: {
+    backgroundColor: DoctorUIColors.primary,
+    borderRadius: DoctorUIRadius.button,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  whatsappBtnText: {
+    color: DoctorUIColors.white,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: DoctorUIColors.text,
+    letterSpacing: 0.3,
+  },
+  passwordPanel: {
+    backgroundColor: DoctorUIColors.panel,
+    borderRadius: DoctorUIRadius.panel,
+    padding: IsiPlazaSpacing.md,
+    gap: IsiPlazaSpacing.sm,
+  },
+  fieldInput: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: DoctorUIColors.primary,
+    paddingVertical: 4,
+  },
+  logoutBtn: {
+    alignItems: 'center',
+    paddingVertical: IsiPlazaSpacing.md,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+    textDecorationLine: 'underline',
   },
 });

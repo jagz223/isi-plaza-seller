@@ -1,26 +1,28 @@
 ﻿import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CatalogSavedImage } from '@/components/CatalogSavedImage';
 import {
-  IsiButton,
-  IsiInput,
-  IsiScreen,
-  IsiSectionTitle,
-  LoadingOverlay,
-  SearchableSelect,
-} from '@/components/isi-plaza';
+  DoctorFieldCard,
+  DoctorSaveButton,
+  DoctorServicesTab,
+  DoctorTabSwitcher,
+  type DoctorTab,
+} from '@/components/doctor';
+import { LoadingOverlay, SearchableSelect } from '@/components/isi-plaza';
 import {
   COUNTRY_NAMES,
   DEFAULT_WHATSAPP_DIAL_CODE,
@@ -30,7 +32,9 @@ import {
   getStatesForCountry,
   parseWhatsapp,
 } from '@/constants/location-data';
-import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
+import { DoctorUIColors, DoctorUIRadius } from '@/constants/doctor-ui';
+import { isMexicoCountry } from '@/constants/geo-mexico';
+import { IsiPlazaColors, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { useAuth } from '@/contexts/AuthContext';
 import { getStoredToken } from '@/services/api/client';
 import { resolveMediaUrl } from '@/services/api/config';
@@ -54,8 +58,10 @@ import {
   validateCatalogUploadLimits,
 } from '@/services/catalog-upload';
 import { validateProfileFormBeforeSave } from '@/services/profile-form-validation';
+import { loadMunicipalityOptions } from '@/utils/geo-municipalities';
 import { showUserMessage } from '@/utils/show-user-message';
 import { getCurrentCoordinates } from '@/utils/location';
+import type { SelectOption } from '@/components/isi-plaza/SearchableSelect';
 import type { CatalogImage, SellerUser } from '@/types/seller-api';
 
 /** Un solo carrusel de fotos del consultorio (display_order = 1 en API). */
@@ -67,7 +73,11 @@ function newLocalPhotoId(): string {
 }
 
 export default function PerfilScreen() {
+  const params = useLocalSearchParams<{ tab?: string }>();
   const { user, refreshSession } = useAuth();
+  const [activeTab, setActiveTab] = useState<DoctorTab>(
+    params.tab === 'servicios' ? 'servicios' : 'perfil',
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -82,6 +92,7 @@ export default function PerfilScreen() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [municipality, setMunicipality] = useState('');
+  const [municipalityOptions, setMunicipalityOptions] = useState<SelectOption[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -122,6 +133,7 @@ export default function PerfilScreen() {
 
   const handleCountryChange = useCallback((name: string) => {
     setCountry(name);
+    setMunicipality('');
     const meta = getCountryByName(name);
     if (meta) {
       setWhatsappDialCode(meta.dialCode);
@@ -131,6 +143,41 @@ export default function PerfilScreen() {
       return prev.filter((s) => allowed.includes(s));
     });
   }, []);
+
+  const handleStateChange = useCallback((values: string[]) => {
+    setState(values);
+    setMunicipality('');
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadMunicipalityOptions(country, state)
+      .then((options) => {
+        if (!cancelled) {
+          setMunicipalityOptions(options);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMunicipalityOptions([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [country, state]);
+
+  useEffect(() => {
+    if (!municipality || municipalityOptions.length === 0) {
+      return;
+    }
+    const isValid = municipalityOptions.some((option) => option.value === municipality);
+    if (!isValid) {
+      setMunicipality('');
+    }
+  }, [municipality, municipalityOptions]);
 
   const applyProfileToForm = useCallback((profile: SellerUser) => {
     const sp = profile.seller_profile;
@@ -397,6 +444,29 @@ export default function PerfilScreen() {
     longitude,
   ]);
 
+  useEffect(() => {
+    if (params.tab === 'servicios') {
+      setActiveTab('servicios');
+    }
+  }, [params.tab]);
+
+  const photoSlots = useMemo(() => {
+    type Slot =
+      | { kind: 'saved'; id: number }
+      | { kind: 'pending'; localId: string; uri: string }
+      | { kind: 'empty'; index: number };
+
+    const slots: Slot[] = [];
+    savedPhotos.forEach((img) => slots.push({ kind: 'saved', id: img.id }));
+    pendingPhotos.forEach((p) => slots.push({ kind: 'pending', localId: p.localId, uri: p.uri }));
+    let emptyIndex = slots.length + 1;
+    while (slots.length < MAX_PROFILE_PHOTOS) {
+      slots.push({ kind: 'empty', index: emptyIndex });
+      emptyIndex += 1;
+    }
+    return slots.slice(0, MAX_PROFILE_PHOTOS);
+  }, [savedPhotos, pendingPhotos]);
+
   if (loading) {
     return <LoadingOverlay />;
   }
@@ -406,334 +476,430 @@ export default function PerfilScreen() {
   const canAddMorePhotos = photoCount < MAX_PROFILE_PHOTOS;
 
   return (
-    <View style={styles.screenRoot}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       {isBusy ? <LoadingOverlay message="Guardando perfil…" variant="overlay" /> : null}
-      <IsiScreen contentContainerStyle={styles.content}>
-        <Text style={styles.pageTitle}>Esta es la información que verán los pacientes</Text>
 
-        {user?.seller_profile?.is_verified ? (
-          <Text style={styles.badge}>✓ Cuenta verificada</Text>
-        ) : null}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>DAR DE ALTA EL PERFIL</Text>
+          <Text style={styles.headerSubtitle}>Perfil y servicios.</Text>
+        </View>
+      </View>
 
-        <IsiSectionTitle>Foto de perfil</IsiSectionTitle>
-        <Pressable
-          style={[styles.photoPlaceholder, displayAvatar && styles.photoPlaceholderFilled]}
-          onPress={handlePickAvatar}>
-          {displayAvatar ? (
-            <Image source={{ uri: displayAvatar }} style={styles.avatarImage} contentFit="cover" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.panel}>
+          <DoctorTabSwitcher active={activeTab} onChange={setActiveTab} />
+
+          {activeTab === 'servicios' ? (
+            <DoctorServicesTab />
           ) : (
-            <View style={styles.emptyInner}>
-              <Ionicons name="add-circle-outline" size={36} color={IsiPlazaColors.primary} />
-              <Text style={styles.photoPlaceholderText}>+ Añadir foto de perfil</Text>
+            <View style={styles.profileContent}>
+              {user?.seller_profile?.is_verified ? (
+                <Text style={styles.badge}>✓ Cuenta verificada</Text>
+              ) : null}
+
+              <DoctorFieldCard label="Nombre">
+                <TextInput
+                  style={styles.fieldInput}
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  autoCapitalize="words"
+                  placeholder="Tu nombre"
+                  placeholderTextColor={DoctorUIColors.textMuted}
+                />
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="Cédula profesional">
+                <TextInput
+                  style={styles.fieldInput}
+                  value={professionalLicense}
+                  onChangeText={setProfessionalLicense}
+                  autoCapitalize="characters"
+                  placeholder="1234567"
+                  placeholderTextColor={DoctorUIColors.textMuted}
+                />
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="Celular">
+                <TextInput
+                  style={styles.fieldInput}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  placeholderTextColor={DoctorUIColors.textMuted}
+                />
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="País">
+                <SearchableSelect
+                  label=""
+                  placeholder="Seleccionar país"
+                  options={countryOptions}
+                  value={country || undefined}
+                  onChange={handleCountryChange}
+                />
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="Provincia / Estado">
+                <SearchableSelect
+                  label=""
+                  placeholder="Seleccionar"
+                  options={stateOptions}
+                  values={state}
+                  onChangeMultiple={handleStateChange}
+                  multiple
+                  disabled={!country}
+                />
+                {!country ? (
+                  <Text style={styles.fieldHint}>Selecciona un país primero.</Text>
+                ) : null}
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="Descripción">
+                <TextInput
+                  style={[styles.fieldInput, styles.textArea]}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  maxLength={100}
+                  placeholder="Breve descripción del consultorio"
+                  placeholderTextColor={DoctorUIColors.textMuted}
+                />
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="Dirección del consultorio">
+                <TextInput
+                  style={styles.fieldInput}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Calle y número"
+                  placeholderTextColor={DoctorUIColors.textMuted}
+                />
+              </DoctorFieldCard>
+
+              <DoctorFieldCard label="Municipio / alcaldía">
+                {municipalityOptions.length > 0 ? (
+                  <SearchableSelect
+                    label=""
+                    placeholder="Seleccionar municipio o alcaldía"
+                    options={municipalityOptions}
+                    value={municipality || undefined}
+                    onChange={setMunicipality}
+                    disabled={!country || state.length === 0}
+                  />
+                ) : (
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={municipality}
+                    onChangeText={setMunicipality}
+                    placeholder="Municipio o alcaldía"
+                    placeholderTextColor={DoctorUIColors.textMuted}
+                    editable={Boolean(country && state.length > 0)}
+                  />
+                )}
+                {!country || state.length === 0 ? (
+                  <Text style={styles.fieldHint}>Selecciona país y estado primero.</Text>
+                ) : isMexicoCountry(country) && municipalityOptions.length === 0 ? (
+                  <Text style={styles.fieldHint}>
+                    Catálogo disponible para Ciudad de México y Estado de México.
+                  </Text>
+                ) : null}
+              </DoctorFieldCard>
+
+              <Text style={styles.photosLabel}>Fotos (opcional)</Text>
+              <View style={styles.photoGrid}>
+                {photoSlots.map((slot) => {
+                  if (slot.kind === 'saved') {
+                    const img = savedPhotos.find((i) => i.id === slot.id);
+                    if (!img) return null;
+                    return (
+                      <View key={`saved-${img.id}`} style={styles.photoSlot}>
+                        <CatalogSavedImage
+                          imageId={img.id}
+                          imageUrl={img.image_url}
+                          authHeaders={photoAuthHeaders}
+                          style={styles.photoImage}
+                        />
+                        <Pressable
+                          style={styles.photoRemove}
+                          onPress={() => void removeSavedPhoto(img.id)}
+                          disabled={isBusy}>
+                          <Ionicons name="close" size={16} color={DoctorUIColors.white} />
+                        </Pressable>
+                      </View>
+                    );
+                  }
+                  if (slot.kind === 'pending') {
+                    return (
+                      <View key={slot.localId} style={styles.photoSlot}>
+                        <Image source={{ uri: slot.uri }} style={styles.photoImage} contentFit="cover" />
+                        <Pressable
+                          style={styles.photoRemove}
+                          onPress={() => removePendingPhoto(slot.localId)}
+                          disabled={isBusy}>
+                          <Ionicons name="close" size={16} color={DoctorUIColors.white} />
+                        </Pressable>
+                      </View>
+                    );
+                  }
+                  return (
+                    <Pressable
+                      key={`empty-${slot.index}`}
+                      style={styles.photoSlotEmpty}
+                      onPress={() => void addProfilePhotos()}
+                      disabled={isBusy || !canAddMorePhotos}>
+                      <Text style={styles.photoSlotText}>Elegir foto {slot.index}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Pressable style={styles.avatarRow} onPress={handlePickAvatar} disabled={isBusy}>
+                {displayAvatar ? (
+                  <Image source={{ uri: displayAvatar }} style={styles.avatarThumb} contentFit="cover" />
+                ) : (
+                  <View style={styles.avatarThumbEmpty}>
+                    <Ionicons name="person" size={28} color={DoctorUIColors.primary} />
+                  </View>
+                )}
+                <Text style={styles.avatarLabel}>Foto de perfil</Text>
+              </Pressable>
+
+              <DoctorFieldCard label="WhatsApp">
+                <View style={styles.whatsappRow}>
+                  <View style={styles.dialWrap}>
+                    <SearchableSelect
+                      label=""
+                      placeholder="Prefijo"
+                      options={dialCodeOptions}
+                      value={whatsappDialCode}
+                      onChange={setWhatsappDialCode}
+                      compact
+                    />
+                  </View>
+                  <TextInput
+                    style={[styles.fieldInput, styles.whatsappInput]}
+                    value={whatsappNumber}
+                    onChangeText={(text) => setWhatsappNumber(text.replace(/\D/g, ''))}
+                    keyboardType="phone-pad"
+                    maxLength={12}
+                    placeholder="Número"
+                    placeholderTextColor={DoctorUIColors.textMuted}
+                  />
+                </View>
+              </DoctorFieldCard>
+
+              <Pressable
+                style={styles.locationBtn}
+                onPress={() => {
+                  void (async () => {
+                    const coords = await getCurrentCoordinates();
+                    if (coords) {
+                      setLatitude(coords.latitude);
+                      setLongitude(coords.longitude);
+                    }
+                  })();
+                }}
+                disabled={isBusy}>
+                <Text style={styles.locationBtnText}>
+                  {latitude != null && longitude != null
+                    ? `Ubicación guardada (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`
+                    : 'Usar mi ubicación actual'}
+                </Text>
+              </Pressable>
+
+              {formMessage ? (
+                <View style={styles.formMessageBox}>
+                  <Text style={styles.formMessageText}>{formMessage}</Text>
+                </View>
+              ) : null}
+
+              {uploadProgress ? (
+                <Text style={styles.uploadProgress}>
+                  Subiendo foto {Math.min(uploadProgress.completed + 1, uploadProgress.total)} de{' '}
+                  {uploadProgress.total}…
+                </Text>
+              ) : null}
+
+              <DoctorSaveButton
+                label={isBusy ? 'Guardando…' : 'Guardar perfil'}
+                onPress={() => void handleSaveProfile()}
+                disabled={isBusy}
+                loading={isBusy}
+              />
             </View>
           )}
-        </Pressable>
-
-        <IsiSectionTitle>Datos del consultorio</IsiSectionTitle>
-        <View style={styles.fields}>
-          <IsiInput
-            label="Nombre comercial"
-            value={businessName}
-            onChangeText={setBusinessName}
-            autoCapitalize="words"
-          />
-          <IsiInput
-            label="Descripción (máx. 100 caracteres)"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-            maxLength={100}
-            style={styles.textArea}
-          />
-          <SearchableSelect
-            label="País"
-            placeholder="Seleccionar país"
-            options={countryOptions}
-            value={country || undefined}
-            onChange={handleCountryChange}
-          />
-          <SearchableSelect
-            label="Estados / Provincias"
-            placeholder={country ? 'Seleccionar provincias' : 'Primero elige un país'}
-            options={stateOptions}
-            values={state}
-            onChangeMultiple={setState}
-            multiple
-            disabled={!country}
-          />
         </View>
-
-        <IsiSectionTitle>Datos profesionales</IsiSectionTitle>
-        <View style={styles.fields}>
-          <IsiInput
-            label="Cédula profesional"
-            value={professionalLicense}
-            onChangeText={setProfessionalLicense}
-            autoCapitalize="characters"
-          />
-          <IsiInput
-            label="Celular"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-          <IsiInput label="Dirección del consultorio" value={address} onChangeText={setAddress} />
-          <IsiInput label="Municipio / alcaldía" value={municipality} onChangeText={setMunicipality} />
-          <IsiButton
-            label={
-              latitude != null && longitude != null
-                ? `Ubicación guardada (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`
-                : 'Usar mi ubicación actual'
-            }
-            variant="outline"
-            onPress={() => {
-              void (async () => {
-                const coords = await getCurrentCoordinates();
-                if (coords) {
-                  setLatitude(coords.latitude);
-                  setLongitude(coords.longitude);
-                }
-              })();
-            }}
-          />
-        </View>
-
-        <IsiSectionTitle>Carrusel de fotos del consultorio</IsiSectionTitle>
-        <Text style={styles.hint}>
-          Sube hasta {MAX_PROFILE_PHOTOS} fotos. Los pacientes las verán en un carrusel en tu perfil
-          público. Se guardan al pulsar Guardar perfil.
-        </Text>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.carouselContent}>
-          {savedPhotos.map((img) => (
-            <View key={`saved-${img.id}`} style={styles.carouselSlide}>
-              <CatalogSavedImage
-                imageId={img.id}
-                imageUrl={img.image_url}
-                authHeaders={photoAuthHeaders}
-                style={styles.carouselImage}
-              />
-              <Pressable
-                style={styles.removeBtn}
-                onPress={() => void removeSavedPhoto(img.id)}
-                disabled={isBusy}>
-                <Ionicons name="close" size={18} color={IsiPlazaColors.white} />
-              </Pressable>
-            </View>
-          ))}
-          {pendingPhotos.map((item) => (
-            <View key={item.localId} style={styles.carouselSlide}>
-              <Image source={{ uri: item.uri }} style={styles.carouselImage} contentFit="cover" />
-              <Pressable
-                style={styles.removeBtn}
-                onPress={() => removePendingPhoto(item.localId)}
-                disabled={isBusy}>
-                <Ionicons name="close" size={18} color={IsiPlazaColors.white} />
-              </Pressable>
-            </View>
-          ))}
-          {canAddMorePhotos ? (
-            <Pressable
-              style={styles.carouselAdd}
-              onPress={() => void addProfilePhotos()}
-              disabled={isBusy}>
-              {uploadingPhotos ? (
-                <ActivityIndicator color={IsiPlazaColors.primary} />
-              ) : (
-                <>
-                  <Ionicons name="add-circle-outline" size={32} color={IsiPlazaColors.primary} />
-                  <Text style={styles.carouselAddText}>Añadir</Text>
-                </>
-              )}
-            </Pressable>
-          ) : null}
-        </ScrollView>
-
-        <IsiSectionTitle>Contacto</IsiSectionTitle>
-        <View style={styles.fields}>
-          <View style={styles.whatsappRow}>
-            <View style={styles.whatsappPrefix}>
-              <SearchableSelect
-                label="Código"
-                placeholder="Prefijo"
-                options={dialCodeOptions}
-                value={whatsappDialCode}
-                onChange={setWhatsappDialCode}
-                compact
-              />
-            </View>
-            <View style={styles.whatsappNum}>
-              <IsiInput
-                label="WhatsApp (máx 12)"
-                value={whatsappNumber}
-                onChangeText={(text) => setWhatsappNumber(text.replace(/\s/g, ''))}
-                keyboardType="phone-pad"
-                maxLength={12}
-              />
-            </View>
-          </View>
-          <Text style={styles.nameHint}>
-            Los pacientes podrán contactarte por WhatsApp desde tu perfil público.
-          </Text>
-        </View>
-
-        {formMessage ? (
-          <View style={styles.formMessageBox}>
-            <Text style={styles.formMessageText}>{formMessage}</Text>
-          </View>
-        ) : null}
-
-        {uploadProgress ? (
-          <Text style={styles.uploadProgress}>
-            Subiendo foto {Math.min(uploadProgress.completed + 1, uploadProgress.total)} de{' '}
-            {uploadProgress.total}…
-          </Text>
-        ) : null}
-
-        <IsiButton
-          label={isBusy ? 'Guardando…' : 'Guardar perfil'}
-          onPress={() => {
-            void handleSaveProfile();
-          }}
-          disabled={isBusy}
-          style={styles.saveButton}
-        />
-      </IsiScreen>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screenRoot: {
+  safe: {
     flex: 1,
-    position: 'relative',
+    backgroundColor: DoctorUIColors.screen,
   },
-  content: {
+  header: {
     paddingHorizontal: IsiPlazaSpacing.lg,
-    paddingTop: IsiPlazaSpacing.lg,
-    gap: IsiPlazaSpacing.md,
+    paddingTop: IsiPlazaSpacing.sm,
+    paddingBottom: IsiPlazaSpacing.md,
   },
-  pageTitle: {
+  headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: IsiPlazaColors.text,
-    textAlign: 'center',
-    marginBottom: IsiPlazaSpacing.sm,
+    fontWeight: '800',
+    color: DoctorUIColors.text,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: DoctorUIColors.primary,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: IsiPlazaSpacing.lg,
+    paddingBottom: IsiPlazaSpacing.xl,
+  },
+  panel: {
+    backgroundColor: DoctorUIColors.panel,
+    borderRadius: DoctorUIRadius.panel,
+    padding: IsiPlazaSpacing.md,
+    gap: IsiPlazaSpacing.md,
+    minHeight: 400,
+  },
+  profileContent: {
+    gap: IsiPlazaSpacing.sm,
   },
   badge: {
     textAlign: 'center',
     color: IsiPlazaColors.success,
     fontWeight: '600',
-  },
-  fields: {
-    gap: IsiPlazaSpacing.md,
-  },
-  nameHint: {
-    fontSize: 12,
-    color: IsiPlazaColors.textSecondary,
-    lineHeight: 16,
-    marginTop: -IsiPlazaSpacing.sm,
-  },
-  hint: {
     fontSize: 13,
-    color: IsiPlazaColors.textSecondary,
-    lineHeight: 18,
   },
-  whatsappRow: {
-    flexDirection: 'row',
-    gap: IsiPlazaSpacing.sm,
-    alignItems: 'flex-end',
+  fieldInput: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: DoctorUIColors.primary,
+    paddingVertical: 4,
   },
-  whatsappPrefix: {
-    width: 130,
-    flexShrink: 0,
-  },
-  whatsappNum: {
-    flex: 1,
-    minWidth: 0,
+  fieldHint: {
+    fontSize: 12,
+    color: DoctorUIColors.textMuted,
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 72,
     textAlignVertical: 'top',
   },
-  photoPlaceholder: {
-    height: 140,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: IsiPlazaColors.primaryMuted,
-    borderRadius: IsiPlazaRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-    overflow: 'hidden',
+  photosLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: DoctorUIColors.primary,
+    marginTop: 4,
   },
-  photoPlaceholderFilled: {
-    borderStyle: 'solid',
-    borderColor: IsiPlazaColors.primary,
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  emptyInner: {
-    alignItems: 'center',
-    gap: IsiPlazaSpacing.xs,
-  },
-  photoPlaceholderText: {
-    color: IsiPlazaColors.primary,
-    fontWeight: '600',
-  },
-  carouselContent: {
-    gap: IsiPlazaSpacing.sm,
-    paddingVertical: IsiPlazaSpacing.xs,
-  },
-  carouselSlide: {
-    width: 160,
-    height: 120,
-    borderRadius: IsiPlazaRadius.md,
+  photoSlot: {
+    width: '47%',
+    aspectRatio: 1.35,
+    borderRadius: DoctorUIRadius.card,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: IsiPlazaColors.backgroundMuted,
+    backgroundColor: DoctorUIColors.white,
   },
-  carouselImage: {
+  photoSlotEmpty: {
+    width: '47%',
+    aspectRatio: 1.35,
+    borderRadius: DoctorUIRadius.card,
+    backgroundColor: DoctorUIColors.slot,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  photoSlotText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+    textAlign: 'center',
+  },
+  photoImage: {
     width: '100%',
     height: '100%',
   },
-  carouselAdd: {
-    width: 120,
-    height: 120,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: IsiPlazaColors.primaryMuted,
-    borderRadius: IsiPlazaRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: IsiPlazaColors.backgroundMuted,
-  },
-  carouselAddText: {
-    color: IsiPlazaColors.primary,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  removeBtn: {
+  photoRemove: {
     position: 'absolute',
     top: 6,
     right: 6,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  avatarThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: DoctorUIColors.white,
+  },
+  avatarThumbEmpty: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: DoctorUIColors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+  },
+  whatsappRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dialWrap: {
+    width: 108,
+    flexShrink: 0,
+  },
+  whatsappInput: {
+    flex: 1,
+    minWidth: 0,
+  },
+  locationBtn: {
+    backgroundColor: DoctorUIColors.white,
+    borderRadius: DoctorUIRadius.card,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  locationBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: DoctorUIColors.primary,
+  },
   formMessageBox: {
     backgroundColor: '#FEE2E2',
-    borderRadius: IsiPlazaRadius.sm,
+    borderRadius: 8,
     padding: IsiPlazaSpacing.md,
   },
   formMessageText: {
@@ -742,11 +908,7 @@ const styles = StyleSheet.create({
   },
   uploadProgress: {
     fontSize: 13,
-    color: IsiPlazaColors.textSecondary,
+    color: DoctorUIColors.textMuted,
     textAlign: 'center',
-  },
-  saveButton: {
-    marginTop: IsiPlazaSpacing.sm,
-    marginBottom: IsiPlazaSpacing.lg,
   },
 });

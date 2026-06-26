@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,15 +9,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 
-import { SELLER_PROFILE_HERO_HEIGHT } from '@/constants/buyer-seller-display';
-import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import { SellerVerifiedBadge } from '@/components/buyer/SellerVerifiedBadge';
+import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import {
   addConsumerFavorite,
   fetchConsumerSeller,
@@ -25,10 +22,13 @@ import {
   removeConsumerFavorite,
 } from '@/services/api/consumer';
 import type { ConsumerSellerDetail } from '@/types/consumer-api';
+import { formatSellerLocationBlock } from '@/utils/format-seller-location';
 
-const GALLERY_THUMB = 108;
+const PANEL_BG = '#C5E4EF';
+const SERVICE_PILL_BG = '#B8DCE8';
+const PHOTO_HEIGHT = 200;
 
-function OutlineButton({
+function PrimaryActionButton({
   label,
   onPress,
   disabled,
@@ -39,18 +39,21 @@ function OutlineButton({
 }) {
   return (
     <Pressable
-      style={[styles.outlineBtn, disabled && styles.outlineBtnDisabled]}
+      style={[styles.actionBtn, disabled && styles.actionBtnDisabled]}
       onPress={onPress}
       disabled={disabled}>
-      <Text style={[styles.outlineBtnText, disabled && styles.outlineBtnTextDisabled]}>{label}</Text>
+      <Text style={[styles.actionBtnText, disabled && styles.actionBtnTextDisabled]}>{label}</Text>
     </Pressable>
   );
+}
+
+function formatPrice(price: number): string {
+  return `$${price.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
 }
 
 export default function MedicoDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const sellerId = Number(id);
 
@@ -84,7 +87,9 @@ export default function MedicoDetailScreen() {
   }, [load]);
 
   const openLink = async (url: string | null | undefined) => {
-    if (!url) return;
+    if (!url) {
+      return;
+    }
     try {
       await Linking.openURL(url);
     } catch {
@@ -94,7 +99,9 @@ export default function MedicoDetailScreen() {
 
   const openWhatsapp = () => {
     const wa = medico?.whatsapp;
-    if (!wa) return;
+    if (!wa) {
+      return;
+    }
     if (!Number.isNaN(sellerId)) {
       recordConsumerSellerInteraction(sellerId, 'whatsapp_click');
     }
@@ -106,12 +113,16 @@ export default function MedicoDetailScreen() {
 
   const openPhone = () => {
     const phone = medico?.phone?.replace(/\D/g, '');
-    if (!phone) return;
+    if (!phone) {
+      return;
+    }
     void openLink(`tel:${phone}`);
   };
 
   const toggleFavorite = async () => {
-    if (!sellerId || Number.isNaN(sellerId)) return;
+    if (!sellerId || Number.isNaN(sellerId)) {
+      return;
+    }
     try {
       const favorited = isFavorite
         ? await removeConsumerFavorite(sellerId)
@@ -121,6 +132,23 @@ export default function MedicoDetailScreen() {
       Alert.alert('Error', 'No se pudo actualizar favoritos.');
     }
   };
+
+  const photoUrls = useMemo(() => {
+    if (!medico) {
+      return [];
+    }
+    const gallery = (medico.catalog_images ?? [])
+      .filter((img) => img.display_order === 1)
+      .map((img) => img.image_url)
+      .filter(Boolean);
+    if (gallery.length > 0) {
+      return gallery;
+    }
+    if (medico.avatar_url) {
+      return [medico.avatar_url];
+    }
+    return [];
+  }, [medico]);
 
   if (loading) {
     return (
@@ -135,95 +163,93 @@ export default function MedicoDetailScreen() {
       <View style={[styles.centered, { paddingTop: insets.top, paddingHorizontal: 24 }]}>
         <Text style={styles.errorText}>{error ?? 'No encontrado'}</Text>
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.backLink}>← Volver</Text>
+          <Text style={styles.backLink}>Volver</Text>
         </Pressable>
       </View>
     );
   }
 
-  const galleryImages = (medico.catalog_images ?? []).filter((img) => img.display_order === 1);
   const services = medico.services ?? [];
-  const locationLine = [medico.municipality, medico.address].filter(Boolean).join(' · ');
+  const locationBlock = formatSellerLocationBlock(medico);
+  const primaryPhoto = photoUrls[0];
 
   return (
     <View style={styles.root}>
-      <View style={[styles.topBar, { paddingTop: insets.top + IsiPlazaSpacing.sm }]}>
-        <Pressable style={styles.backPressable} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Volver</Text>
-        </Pressable>
-      </View>
-
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + IsiPlazaSpacing.sm, paddingBottom: insets.bottom + 24 },
+        ]}
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.heroWrap, { width: screenWidth }]}>
-          {medico.avatar_url ? (
-            <Image source={{ uri: medico.avatar_url }} style={styles.heroImage} contentFit="cover" />
-          ) : (
-            <View style={[styles.heroImage, styles.heroPlaceholder]} />
-          )}
-          {medico.is_verified ? <SellerVerifiedBadge /> : null}
-        </View>
-
-        <View style={styles.body}>
-          <Text style={styles.nameText}>{medico.name}</Text>
-
-          {medico.professional_license ? (
-            <Text style={styles.licenseText}>Cédula profesional: {medico.professional_license}</Text>
-          ) : null}
-
-          {locationLine ? <Text style={styles.locationText}>{locationLine}</Text> : null}
-
-          {medico.description?.trim() ? (
-            <Text style={styles.descText}>{medico.description.trim()}</Text>
-          ) : null}
-
-          <Pressable style={styles.likeRow} onPress={() => void toggleFavorite()}>
-            <Text style={styles.likeQuestion}>¿Te gusta este médico?</Text>
-            <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
-              size={28}
-              color={IsiPlazaColors.black}
-            />
+        <View style={styles.panel}>
+          <Pressable style={styles.backPill} onPress={() => router.back()}>
+            <Text style={styles.backPillText}>Volver</Text>
           </Pressable>
 
-          <View style={styles.grid2}>
-            <OutlineButton label="WhatsApp" onPress={openWhatsapp} disabled={!medico.whatsapp} />
-            <OutlineButton label="Llamar" onPress={openPhone} disabled={!medico.phone} />
+          <View style={styles.photoArea}>
+            {primaryPhoto ? (
+              <Image source={{ uri: primaryPhoto }} style={styles.photoImage} contentFit="cover" />
+            ) : (
+              <Text style={styles.photoPlaceholderText}>Sin fotos</Text>
+            )}
+            {medico.is_verified ? (
+              <View style={styles.verifiedWrap}>
+                <SellerVerifiedBadge />
+              </View>
+            ) : null}
           </View>
 
-          {services.length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Servicios y precios</Text>
-              {services.map((service) => (
-                <View key={service.id} style={styles.serviceRow}>
-                  <View style={styles.serviceInfo}>
-                    {service.section_name ? (
-                      <Text style={styles.serviceSection}>{service.section_name}</Text>
-                    ) : null}
-                    <Text style={styles.serviceName}>{service.name ?? 'Tratamiento'}</Text>
-                  </View>
-                  <Text style={styles.servicePrice}>
-                    ${service.price.toLocaleString('es-MX', { minimumFractionDigits: 0 })} MXN
-                  </Text>
-                </View>
-              ))}
+          <View style={styles.infoCard}>
+            <Text style={styles.nameText}>{medico.name}</Text>
+            {medico.professional_license ? (
+              <Text style={styles.licenseText}>
+                Cédula profesional: {medico.professional_license}
+              </Text>
+            ) : null}
+          </View>
+
+          {locationBlock ? (
+            <View style={styles.infoCard}>
+              <Text style={styles.locationLabel}>UBICACIÓN:</Text>
+              <Text style={styles.locationBody}>{locationBlock}</Text>
             </View>
           ) : null}
 
-          {galleryImages.length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Galería del consultorio</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryScroll}>
-                {galleryImages.map((img) => (
-                  <View key={img.id} style={styles.galleryThumb}>
-                    <Image source={{ uri: img.image_url }} style={styles.galleryImage} contentFit="cover" />
+          {services.length > 0 ? (
+            <View style={styles.infoCard}>
+              <Text style={styles.servicesTitle}>Servicios</Text>
+              <View style={styles.servicesList}>
+                {services.map((service) => (
+                  <View key={service.id} style={styles.servicePill}>
+                    <Text style={styles.serviceName} numberOfLines={2}>
+                      {service.name ?? 'Tratamiento'}
+                    </Text>
+                    <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
                   </View>
                 ))}
-              </ScrollView>
+              </View>
             </View>
           ) : null}
+
+          <View style={styles.actionsRow}>
+            <PrimaryActionButton label="Llamar" onPress={openPhone} disabled={!medico.phone} />
+            <PrimaryActionButton
+              label="WhatsApp"
+              onPress={openWhatsapp}
+              disabled={!medico.whatsapp}
+            />
+          </View>
+
+          <Pressable
+            style={styles.favoriteRow}
+            onPress={() => void toggleFavorite()}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? 'Quitar de guardados' : 'Guardar médico'}>
+            <Text style={styles.favoriteHint}>
+              {isFavorite ? 'Guardado en tus favoritos' : 'Guardar en favoritos'}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -231,60 +257,169 @@ export default function MedicoDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: IsiPlazaColors.white },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: IsiPlazaColors.white },
-  errorText: { textAlign: 'center', color: IsiPlazaColors.textSecondary, marginBottom: 16 },
-  backLink: { color: IsiPlazaColors.primary, fontWeight: '700', fontSize: 16 },
-  scroll: { flex: 1 },
-  topBar: {
-    backgroundColor: IsiPlazaColors.white,
-    paddingHorizontal: IsiPlazaSpacing.md,
-    paddingBottom: IsiPlazaSpacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: IsiPlazaColors.border,
-  },
-  backPressable: { alignSelf: 'flex-start', paddingVertical: IsiPlazaSpacing.xs },
-  backText: { color: IsiPlazaColors.primaryDark, fontSize: 18, fontWeight: '600' },
-  heroWrap: { position: 'relative', height: SELLER_PROFILE_HERO_HEIGHT, backgroundColor: '#D9D9D9' },
-  heroImage: { width: '100%', height: SELLER_PROFILE_HERO_HEIGHT },
-  heroPlaceholder: { backgroundColor: '#D9D9D9' },
-  body: { paddingHorizontal: IsiPlazaSpacing.md, paddingTop: IsiPlazaSpacing.md, gap: IsiPlazaSpacing.sm },
-  nameText: { fontSize: 22, fontWeight: '800', color: IsiPlazaColors.text },
-  licenseText: { fontSize: 14, fontWeight: '600', color: IsiPlazaColors.primary },
-  locationText: { fontSize: 13, color: IsiPlazaColors.textSecondary },
-  descText: { fontSize: 14, color: IsiPlazaColors.text, lineHeight: 20 },
-  likeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  likeQuestion: { fontSize: 15, fontWeight: '600', color: IsiPlazaColors.text },
-  grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
-  outlineBtn: {
+  root: {
     flex: 1,
-    minWidth: '45%',
-    borderWidth: 2,
-    borderColor: IsiPlazaColors.primary,
-    borderRadius: IsiPlazaRadius.sm,
-    paddingVertical: 12,
-    alignItems: 'center',
+    backgroundColor: IsiPlazaColors.background,
   },
-  outlineBtnDisabled: { borderColor: IsiPlazaColors.border, opacity: 0.5 },
-  outlineBtnText: { fontSize: 14, fontWeight: '700', color: IsiPlazaColors.primary },
-  outlineBtnTextDisabled: { color: IsiPlazaColors.textSecondary },
-  section: { marginTop: IsiPlazaSpacing.lg, gap: IsiPlazaSpacing.sm },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: IsiPlazaColors.primary, textTransform: 'uppercase' },
-  serviceRow: {
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: IsiPlazaColors.background,
+  },
+  errorText: {
+    textAlign: 'center',
+    color: IsiPlazaColors.textSecondary,
+    marginBottom: 16,
+  },
+  backLink: {
+    color: IsiPlazaColors.primary,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: IsiPlazaSpacing.md,
+  },
+  panel: {
+    backgroundColor: PANEL_BG,
+    borderRadius: IsiPlazaRadius.lg,
+    padding: IsiPlazaSpacing.md,
+    gap: IsiPlazaSpacing.md,
+  },
+  backPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: IsiPlazaColors.white,
+    borderRadius: IsiPlazaRadius.pill,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(18, 22, 96, 0.12)',
+  },
+  backPillText: {
+    color: IsiPlazaColors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  photoArea: {
+    height: PHOTO_HEIGHT,
+    borderRadius: IsiPlazaRadius.md,
+    backgroundColor: IsiPlazaColors.primary,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoPlaceholderText: {
+    color: '#7B9FD4',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  verifiedWrap: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+  },
+  infoCard: {
+    backgroundColor: IsiPlazaColors.white,
+    borderRadius: IsiPlazaRadius.md,
+    paddingHorizontal: IsiPlazaSpacing.md,
+    paddingVertical: 14,
+    gap: 6,
+  },
+  nameText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
+  },
+  licenseText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: IsiPlazaColors.primary,
+  },
+  locationLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
+    letterSpacing: 0.3,
+  },
+  locationBody: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: IsiPlazaColors.primary,
+    lineHeight: 18,
+  },
+  servicesTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
+    marginBottom: 4,
+  },
+  servicesList: {
+    gap: 8,
+  },
+  servicePill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: IsiPlazaColors.border,
-    borderRadius: IsiPlazaRadius.md,
-    padding: IsiPlazaSpacing.md,
-    backgroundColor: IsiPlazaColors.backgroundMuted,
+    gap: 12,
+    backgroundColor: SERVICE_PILL_BG,
+    borderRadius: IsiPlazaRadius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
   },
-  serviceInfo: { flex: 1, paddingRight: 8 },
-  serviceSection: { fontSize: 11, fontWeight: '700', color: IsiPlazaColors.textSecondary, textTransform: 'uppercase' },
-  serviceName: { fontSize: 15, fontWeight: '700', color: IsiPlazaColors.text },
-  servicePrice: { fontSize: 16, fontWeight: '800', color: IsiPlazaColors.primary },
-  galleryScroll: { gap: 10 },
-  galleryThumb: { width: GALLERY_THUMB, height: GALLERY_THUMB, borderRadius: IsiPlazaRadius.sm, overflow: 'hidden' },
-  galleryImage: { width: '100%', height: '100%' },
+  serviceName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: IsiPlazaColors.primary,
+  },
+  servicePrice: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: IsiPlazaColors.primary,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  actionBtn: {
+    flex: 1,
+    backgroundColor: IsiPlazaColors.primary,
+    borderRadius: IsiPlazaRadius.pill,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  actionBtnDisabled: {
+    backgroundColor: '#9AA3C7',
+  },
+  actionBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: IsiPlazaColors.white,
+  },
+  actionBtnTextDisabled: {
+    color: IsiPlazaColors.white,
+    opacity: 0.85,
+  },
+  favoriteRow: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  favoriteHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: IsiPlazaColors.primaryMuted,
+    textDecorationLine: 'underline',
+  },
 });

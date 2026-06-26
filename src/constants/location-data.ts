@@ -265,7 +265,8 @@ export function getStatesForCountry(countryName: string): string[] {
 export function getDialCodeOptions() {
   return LOCATION_COUNTRIES.map((c) => ({
     value: c.dialCode,
-    label: `${c.flag} ${c.dialCode}`,
+    label: `${c.flag} ${c.name} (${c.dialCode})`,
+    shortLabel: `${c.flag} ${c.dialCode}`,
     searchText: `${c.name} ${c.dialCode} ${c.flag}`,
   }));
 }

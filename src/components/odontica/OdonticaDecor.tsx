@@ -2,45 +2,42 @@ import { StyleSheet, View } from 'react-native';
 
 import { IsiPlazaColors } from '@/constants/isi-plaza';
 
-/** Círculos decorativos de las esquinas (mockup Odontica). */
+/**
+ * Acentos decorativos en esquinas, siempre dentro del viewport (sin scroll en web).
+ */
 export function OdonticaDecor() {
   return (
-    <>
-      <View style={styles.circleTopRight} />
-      <View style={styles.circleMidRight} />
-      <View style={styles.circleBottomLeft} />
-    </>
+    <View style={styles.container} pointerEvents="none">
+      <View style={styles.cornerTopRight} />
+      <View style={styles.cornerBottomLeft} />
+    </View>
   );
 }
 
-const CIRCLE = 120;
+const CORNER = 72;
 
 const styles = StyleSheet.create({
-  circleTopRight: {
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    zIndex: 0,
+  },
+  cornerTopRight: {
     position: 'absolute',
-    top: -36,
-    right: -36,
-    width: CIRCLE,
-    height: CIRCLE,
-    borderRadius: CIRCLE / 2,
+    top: 0,
+    right: 0,
+    width: CORNER,
+    height: CORNER,
+    borderBottomLeftRadius: CORNER,
     backgroundColor: IsiPlazaColors.primary,
   },
-  circleMidRight: {
+  cornerBottomLeft: {
     position: 'absolute',
-    top: '42%',
-    right: -56,
-    width: CIRCLE * 0.75,
-    height: CIRCLE * 0.75,
-    borderRadius: (CIRCLE * 0.75) / 2,
-    backgroundColor: IsiPlazaColors.primary,
-  },
-  circleBottomLeft: {
-    position: 'absolute',
-    bottom: -48,
-    left: -48,
-    width: CIRCLE * 1.1,
-    height: CIRCLE * 1.1,
-    borderRadius: (CIRCLE * 1.1) / 2,
+    bottom: 0,
+    left: 0,
+    width: CORNER * 1.15,
+    height: CORNER * 1.15,
+    borderTopRightRadius: CORNER * 1.15,
     backgroundColor: IsiPlazaColors.primary,
   },
 });

@@ -95,6 +95,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: IsiPlazaColors.background,
+    overflow: 'hidden',
   },
   header: {
     alignItems: 'center',

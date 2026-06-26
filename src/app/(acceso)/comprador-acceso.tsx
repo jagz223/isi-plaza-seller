@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { OdonticaDecor } from '@/components/odontica';
+import { SearchableSelect } from '@/components/isi-plaza';
 import { Brand } from '@/constants/brand';
 import { IsiPlazaColors, IsiPlazaRadius, IsiPlazaSpacing } from '@/constants/isi-plaza';
 import {
   DEFAULT_WHATSAPP_DIAL_CODE,
   formatWhatsapp,
+  getDialCodeOptions,
 } from '@/constants/location-data';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useConsumerAuth } from '@/contexts/ConsumerAuthContext';
@@ -46,8 +47,11 @@ export default function CompradorAccesoScreen() {
   const { isAuthenticated, isLoading, registerGuest } = useConsumerAuth();
 
   const [name, setName] = useState('');
+  const [whatsappDialCode, setWhatsappDialCode] = useState(DEFAULT_WHATSAPP_DIAL_CODE);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const dialCodeOptions = useMemo(() => getDialCodeOptions(), []);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -62,7 +66,7 @@ export default function CompradorAccesoScreen() {
       return;
     }
 
-    const whatsapp = formatWhatsapp(DEFAULT_WHATSAPP_DIAL_CODE, whatsappNumber);
+    const whatsapp = formatWhatsapp(whatsappDialCode, whatsappNumber);
     setLoading(true);
     try {
       await registerGuest(name.trim(), whatsapp);
@@ -79,7 +83,6 @@ export default function CompradorAccesoScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <OdonticaDecor />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -108,7 +111,17 @@ export default function CompradorAccesoScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Whatsapp</Text>
                 <View style={styles.whatsappRow}>
-                  <Text style={styles.dialCode}>{DEFAULT_WHATSAPP_DIAL_CODE}</Text>
+                  <View style={styles.dialCodeSelect}>
+                    <SearchableSelect
+                      label=""
+                      placeholder="Prefijo"
+                      options={dialCodeOptions}
+                      value={whatsappDialCode}
+                      onChange={setWhatsappDialCode}
+                      compact
+                      disabled={loading}
+                    />
+                  </View>
                   <TextInput
                     style={[styles.input, styles.whatsappInput]}
                     placeholder="Número"
@@ -204,22 +217,16 @@ const styles = StyleSheet.create({
   },
   whatsappRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: IsiPlazaSpacing.sm,
   },
-  dialCode: {
-    backgroundColor: IsiPlazaColors.white,
-    borderRadius: IsiPlazaRadius.md,
-    paddingHorizontal: IsiPlazaSpacing.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontWeight: '600',
-    color: IsiPlazaColors.text,
-    minWidth: 56,
-    textAlign: 'center',
+  dialCodeSelect: {
+    width: 108,
+    flexShrink: 0,
   },
   whatsappInput: {
     flex: 1,
+    minWidth: 0,
   },
   submitButton: {
     marginTop: IsiPlazaSpacing.sm,

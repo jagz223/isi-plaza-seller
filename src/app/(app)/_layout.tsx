@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 
 import { LoadingOverlay } from '@/components/isi-plaza';
-import { IsiPlazaColors } from '@/constants/isi-plaza';
+import { DoctorUIColors } from '@/constants/doctor-ui';
 import { Routes } from '@/constants/routes';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -25,29 +25,34 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: IsiPlazaColors.primary,
-        tabBarInactiveTintColor: IsiPlazaColors.textSecondary,
+        tabBarActiveTintColor: DoctorUIColors.primary,
+        tabBarInactiveTintColor: DoctorUIColors.textMuted,
         tabBarStyle: {
-          backgroundColor: IsiPlazaColors.white,
-          borderTopColor: IsiPlazaColors.border,
+          backgroundColor: DoctorUIColors.white,
+          borderTopColor: DoctorUIColors.slot,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: '700',
+        },
+        sceneStyle: {
+          backgroundColor: DoctorUIColors.screen,
         },
       }}>
       <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size + 4} color={color} />,
         }}
       />
       <Tabs.Screen
         name="servicios"
         options={{
-          title: 'Servicios',
-          tabBarIcon: ({ color, size }) => <Ionicons name="medical-outline" size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -60,7 +65,7 @@ export default function AppLayout() {
         name="ajustes"
         options={{
           title: 'Cuenta',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size + 4} color={color} />,
         }}
       />
     </Tabs>

@@ -28,9 +28,10 @@ export default function AccesoModoScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <OdonticaDecor />
+      <View style={styles.shell}>
+        <OdonticaDecor />
 
-      <View style={styles.content}>
+        <View style={styles.content}>
         <View style={styles.brandBlock}>
           <OdonticaLogo />
         </View>
@@ -74,6 +75,7 @@ export default function AccesoModoScreen() {
       </View>
 
       <TermsAndConditionsModal visible={termsVisible} onClose={() => setTermsVisible(false)} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -82,22 +84,32 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: IsiPlazaColors.background,
+    overflow: 'hidden',
+  },
+  shell: {
+    flex: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
   content: {
     flex: 1,
     paddingHorizontal: IsiPlazaSpacing.lg,
     justifyContent: 'space-between',
     paddingBottom: IsiPlazaSpacing.md,
+    zIndex: 1,
+    minHeight: 0,
   },
   brandBlock: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: IsiPlazaSpacing.xl,
+    paddingTop: IsiPlazaSpacing.lg,
+    minHeight: 0,
   },
   buttons: {
     gap: IsiPlazaSpacing.lg,
-    paddingBottom: IsiPlazaSpacing.xl,
+    paddingBottom: IsiPlazaSpacing.md,
+    flexShrink: 0,
   },
   modeButtonOutline: {
     flexDirection: 'row',

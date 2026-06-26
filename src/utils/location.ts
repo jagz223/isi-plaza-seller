@@ -34,3 +34,12 @@ export function formatDistanceKm(distanceKm: number): string {
 
   return `A ${distanceKm.toFixed(1)} km`;
 }
+
+/** Formato mockup paciente: «A 2 KM», «A 500 M». */
+export function formatDistanceKmCompact(distanceKm: number): string {
+  if (distanceKm < 1) {
+    return `A ${Math.max(1, Math.round(distanceKm * 1000))} M`;
+  }
+
+  return `A ${Math.round(distanceKm)} KM`;
+}
